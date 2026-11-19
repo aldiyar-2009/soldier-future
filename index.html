@@ -1,0 +1,1351 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Солдат будущего — комплект связи и управления</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tektur:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<style>
+  /* Ночной тактический дисплей. Синий — свои силы и акценты, зелёный — исправно/преимущества, красный — противник и тревога, янтарный — цели, розовый — медицина */
+  :root {
+    --bg: #0A1013; --bg2: #0E161A; --panel: #111B20; --panel2: #15222A; --panel3: #1A2A33;
+    --line: #1F2E36; --line2: #2C404B;
+    --fg: #DCE6E8; --muted: #8C9EA6; --dim: #5D6F78;
+    --friend: #68C3FF; --friend-d: rgba(104,195,255,.14);
+    --hostile: #FF5A5F; --hostile-d: rgba(255,90,95,.14);
+    --prop: #FFC24B; --prop-d: rgba(255,194,75,.14);
+    --ok: #5FD39A; --ok-d: rgba(95,211,154,.14);
+    --med: #FF8597; --med-d: rgba(255,133,151,.16);
+    --grid: rgba(104,195,255,.035);
+    --f-display: "Tektur", "Arial Narrow", sans-serif;
+    --f-body: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box }
+  html { scroll-behavior: smooth }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 16px; line-height: 1.55;
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 48px 48px; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  h1, h2, h3, h4 { font-family: var(--f-display); margin: 0; letter-spacing: .01em; text-wrap: balance }
+  p { margin: 0 }
+  button { font: inherit; color: inherit; cursor: pointer }
+  :focus-visible { outline: 2px solid var(--friend); outline-offset: 2px }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-left)) }
+  .eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--friend) }
+  .lead { color: var(--muted); max-width: 68ch; font-size: 17px }
+  .sec { padding: 110px 0 40px }
+  .sec-h h2 { font-size: clamp(30px, 4.5vw, 52px); margin: 10px 0 14px }
+  .num { font-family: var(--f-mono); color: var(--dim); font-size: 13px; letter-spacing: .1em }
+
+  #prog { position: fixed; top: 0; left: 0; height: 3px; width: 0; background: var(--friend); z-index: 60; box-shadow: 0 0 10px var(--friend) }
+  @keyframes sweep { to { transform: rotate(360deg) } }
+  /* ASUV 3D */
+  .a-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 28px 0 10px }
+  .a-tabs button { border: 1px solid var(--line2); background: var(--panel); color: var(--muted); padding: 9px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: .2s }
+  .a-tabs button i { font: 500 11px var(--f-mono); font-style: normal; color: var(--dim); margin-right: 7px }
+  .a-tabs button:hover { border-color: var(--friend); color: var(--fg) }
+  .a-tabs button.on { background: var(--friend-d); border-color: var(--friend); color: var(--fg) }
+  .a-tabs button.on i { color: var(--friend) }
+  .a-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 12px; font: 500 12px var(--f-mono); color: var(--muted) }
+  .a-legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--c); vertical-align: -1px }
+  .a-grid { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: stretch }
+  .a-stage { position: relative; height: min(78vh, 720px); min-height: 440px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #0A1013 }
+  #aCv { width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab }
+  #aCv:active { cursor: grabbing }
+  .a-ov { position: absolute; inset: 0; pointer-events: none; overflow: hidden }
+  .a-lab { position: absolute; transform: translate(-50%, -100%); margin-top: -8px; padding: 4px 9px; border-radius: 6px; font: 500 12.5px var(--f-body); background: rgba(10,16,19,.88); border: 1px solid var(--line2); color: var(--fg); white-space: nowrap; line-height: 1.3; transition: box-shadow .3s, border-color .3s }
+  .a-lab small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 400 }
+  .a-lab.l { transform: translate(-100%, -50%); margin: 0 0 0 -10px }
+  .a-lab.r { transform: translate(0, -50%); margin: 0 0 0 10px }
+  .a-lab.c { transform: translate(-50%, -50%); margin: 0 }
+  .a-lab.b { transform: translate(-50%, 0); margin: 10px 0 0 }
+  .a-lab.bl { border-color: rgba(104,195,255,.6) } .a-lab.gr { border-color: rgba(95,211,154,.6); color: #bff0d6 }
+  .a-lab.am { border-color: rgba(255,194,75,.6) } .a-lab.rd { border-color: var(--hostile); color: #ffc0c2 }
+  .a-lab.hd { font: 600 11.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted) }
+  .a-lab.hd.bl { color: var(--friend) }
+  .a-lab.ghost { background: none; border: 0; color: var(--dim); font: 500 12px var(--f-mono) }
+  .a-lab.ghost.rd { color: #ff8a8e } .a-lab.ghost.gr { color: var(--ok) }
+  .a-lab.on { border-color: var(--friend); box-shadow: 0 0 18px rgba(104,195,255,.4) }
+  .a-lab.big { font: 600 15px var(--f-mono); padding: 6px 11px }
+  .a-hint { position: absolute; left: 14px; bottom: 12px; font: 500 12px var(--f-mono); color: var(--dim); pointer-events: none }
+  .a-fail { position: absolute; inset: 0; display: none; place-items: center; text-align: center; padding: 30px; color: var(--muted) }
+  .a-side { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; max-height: min(78vh, 720px); overflow: auto }
+  .a-side h3 { font-size: 22px; line-height: 1.15 }
+  .a-lead { color: var(--muted); font-size: 14.5px }
+  .a-sub { font: 500 11px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-top: 2px }
+  .a-list { display: grid; gap: 6px }
+  .a-item { text-align: left; background: var(--bg2); border: 1px solid var(--line); border-left: 3px solid var(--line2); border-radius: 8px; padding: 9px 12px; width: 100%; transition: border-color .2s, background .2s }
+  .a-item b { display: block; font-size: 14px; font-weight: 600 } .a-item small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.35; margin-top: 2px }
+  .a-item:hover { border-color: var(--line2) }
+  .a-item.live { border-left-color: var(--friend) }
+  .a-item.key b { color: var(--friend) }
+  .a-item.ew { border-left-color: var(--prop) }
+  .a-item.on { border-color: var(--friend); background: var(--friend-d) }
+  .a-item .more { display: none; margin-top: 8px; font-size: 13.5px; line-height: 1.45; color: var(--fg) }
+  .a-item.on .more { display: block }
+  .a-item .more em { display: block; margin-top: 7px; font-style: normal; color: #bff0d6 }
+  .a-item .more em::before { content: "Как улучшить → "; font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ok) }
+  .a-ctrl { display: flex; flex-wrap: wrap; gap: 6px }
+  .a-ctrl button { font-size: 13px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line2); background: var(--panel2) }
+  .a-ctrl button.on { border-color: var(--friend); color: var(--friend); background: var(--friend-d) }
+  .a-ctrl button.on.rd { border-color: var(--hostile); color: var(--hostile); background: var(--hostile-d) }
+  .a-read { font: 500 13px var(--f-mono); color: var(--muted); background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; line-height: 1.6 }
+  .a-read b { color: var(--fg); font-weight: 600 } .a-read .g { color: var(--ok) } .a-read .r { color: var(--hostile) } .a-read .y { color: var(--prop) } .a-read .bl { color: var(--friend) }
+  .a-meter { height: 6px; border-radius: 3px; background: var(--hostile-d); overflow: hidden; margin-top: 6px }
+  .a-meter i { display: block; height: 100%; background: var(--friend); transition: width .3s }
+  @keyframes fin { from { opacity: 0; transform: translateY(6px) } }
+  /* roles */
+  .rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; margin-top: 28px }
+  .role { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 10px; align-content: start }
+  .role-h { display: flex; gap: 12px; align-items: center }
+  .sym { width: 54px; height: 38px; flex: none; border: 2px solid var(--friend); border-radius: 3px; display: grid; place-items: center; font: 600 13px var(--f-mono); color: var(--friend); background: var(--friend-d) }
+  .sym.med { border-color: var(--med); color: var(--med); background: var(--med-d); font-size: 22px }
+  .role h3 { font-size: 19px } .role small { display: block; font-family: var(--f-mono); color: var(--dim); font-size: 12px }
+  .role ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 14px }
+  .role li::before { content: "■"; color: var(--ok); font-size: 9px; margin-right: 8px; vertical-align: 2px }
+  .role .plus li::before { content: "+"; color: var(--friend); font: 700 14px var(--f-mono); vertical-align: 0 }
+  .role h4 { font: 500 11px var(--f-mono); letter-spacing: .12em; color: var(--dim); text-transform: uppercase; margin-top: 4px }
+  .role .go { justify-self: start; margin-top: 4px }
+  .btn { padding: 8px 14px; border-radius: 7px; border: 1px solid var(--line2); background: var(--panel2); font-size: 14px; transition: .2s; color: var(--fg); text-decoration: none; display: inline-block }
+  .btn:hover { border-color: var(--friend); color: var(--friend) }
+  footer { border-top: 1px solid var(--line); padding: 24px 0 40px; margin-top: 70px; color: var(--dim); font-size: 13px; font-family: var(--f-mono) }
+  /* ====== новая вёрстка: шапка, комплект, HyTIS, преимущества ====== */
+  .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 50; display: flex; align-items: center; gap: 22px; padding: 12px max(18px, env(safe-area-inset-left)); background: rgba(10,16,19,.82); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line) }
+  .topbar b { font-family: var(--f-display); font-size: 17px; letter-spacing: .04em; margin-right: auto }
+  .topbar b i { color: var(--friend); font-style: normal }
+  .topbar a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .2s }
+  .topbar a:hover, .topbar a.on { color: var(--fg) }
+  .topbar a.on { box-shadow: 0 2px 0 var(--friend) }
+  .hero2 { min-height: 100vh; display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; gap: 20px; position: relative; padding-top: 70px }
+  .hero2 h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: .95; font-weight: 800; margin: 18px 0 22px }
+  .hero2 h1 span { color: var(--friend); display: block }
+  .hero2 .lead { font-size: 18px }
+  .hero-fig { position: relative; height: min(88vh, 860px); display: grid; place-items: center }
+  .hero-fig img { height: 100%; width: 100%; object-fit: contain; position: absolute; inset: 0; z-index: 2; filter: drop-shadow(0 30px 50px rgba(0,0,0,.6)); transition: opacity .6s }
+  .hero-fig img.b { position: absolute; inset: 0; opacity: 0 } .hero-fig.flip img.a { opacity: 0 } .hero-fig.flip img.b { opacity: 1 }
+  .hero-fig::before { content: ""; position: absolute; width: 88%; aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line2); box-shadow: 0 0 0 70px rgba(104,195,255,.025), 0 0 0 140px rgba(104,195,255,.015); background: radial-gradient(circle, rgba(104,195,255,.10), transparent 62%) }
+  .hero-fig .sw { position: absolute; width: 88%; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 0deg, rgba(104,195,255,.16), transparent 22%); animation: sweep 7s linear infinite }
+  .hero-fig button { position: absolute; bottom: 10px; right: 10px; z-index: 3 }
+  .stats { display: grid; grid-template-columns: repeat(2, auto); gap: 16px 44px; margin-top: 34px; justify-content: start }
+  .stats div b { display: block; white-space: nowrap; font: 700 clamp(22px, 2.4vw, 30px) var(--f-display); color: var(--fg) }
+  .stats div span { font: 500 12px var(--f-mono); color: var(--muted); letter-spacing: .04em }
+  .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px }
+  .btn.pri { background: var(--friend); color: #04182a; border-color: var(--friend); font-weight: 600 } .btn.pri:hover { color: #04182a; filter: brightness(1.1) }
+
+  /* ряд оборудования */
+  .dev-row { display: flex; gap: 10px; overflow-x: auto; padding: 6px 2px 14px; margin-top: 26px; scroll-snap-type: x proximity; scrollbar-width: thin }
+  .dev-card { flex: 1 0 116px; max-width: 190px; scroll-snap-align: start; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 10px; text-align: center; transition: border-color .2s, background .2s, transform .2s; position: relative }
+  .dev-card img { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; transition: transform .3s }
+  .dev-card span { display: block; font-size: 13px; font-weight: 500; line-height: 1.25; color: var(--muted); min-height: 2.5em }
+  .dev-card i { position: absolute; left: 9px; top: 7px; font: 500 11px var(--f-mono); font-style: normal; color: var(--dim) }
+  .dev-card:hover { border-color: var(--line2) } .dev-card:hover img { transform: scale(1.06) }
+  .dev-card.on { border-color: var(--friend); background: var(--friend-d) } .dev-card.on span { color: var(--fg) } .dev-card.on i { color: var(--friend) }
+  .kit-grid { display: grid; grid-template-columns: 1fr 400px; gap: 16px; align-items: stretch }
+  .kit-stage { position: relative; height: min(76vh, 720px); min-height: 460px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: radial-gradient(ellipse at 50% 38%, #17242b, #0A1013 70%) }
+  .kit-stage canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y } .kit-stage canvas:active { cursor: grabbing }
+  .kit-ov { position: absolute; inset: 0; pointer-events: none; overflow: hidden }
+  .hs { position: absolute; transform: translate(-11px, -50%); pointer-events: auto; display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 5px; border-radius: 20px; background: rgba(10,16,19,.86); border: 1px solid var(--line2); font-size: 12.5px; font-weight: 500; white-space: nowrap; transition: border-color .2s, opacity .3s }
+  .hs::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--friend); box-shadow: 0 0 0 4px rgba(104,195,255,.2); animation: ping 2.2s ease-out infinite }
+  .hs:hover { border-color: var(--friend) } .hs.back { opacity: 0; pointer-events: none }
+  .hs.l { transform: translate(calc(-100% + 11px), -50%); flex-direction: row-reverse; padding: 4px 5px 4px 10px }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(104,195,255,.5) } 100% { box-shadow: 0 0 0 9px rgba(104,195,255,0) } }
+  .kit-tools { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap }
+  .kit-tools button { font-size: 13px; padding: 6px 11px; border-radius: 7px; border: 1px solid var(--line2); background: rgba(17,27,32,.9) }
+  .kit-tools button:hover, .kit-tools button.on { border-color: var(--friend); color: var(--friend) }
+  .kit-hint { position: absolute; right: 14px; bottom: 14px; font: 500 12px var(--f-mono); color: var(--dim); pointer-events: none }
+  .kit-load { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); font: 500 13px var(--f-mono); padding: 30px }
+  .kit-info { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 12px; max-height: min(76vh, 720px); overflow: auto }
+  .kit-info h3 { font-size: 26px; line-height: 1.1 }
+  .kit-info p { color: var(--muted); font-size: 15px }
+  .kit-info .sub { font: 500 11px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-top: 6px }
+  .plus { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px }
+  .plus li { position: relative; padding-left: 26px; font-size: 14.5px; line-height: 1.4 }
+  .plus li::before { content: "+"; position: absolute; left: 0; top: 1px; width: 17px; height: 17px; border-radius: 50%; background: var(--ok-d); color: var(--ok); font: 700 13px/17px var(--f-mono); text-align: center }
+  .spec { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13.5px; margin: 0 }
+  .spec dt { color: var(--dim); font-family: var(--f-mono); font-size: 12px; padding-top: 1px } .spec dd { margin: 0 }
+  .fadein { animation: fin .35s ease }
+
+  /* схема подключения */
+  .link { margin-top: 26px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px }
+  .link svg { width: 100%; display: block }
+  .link .wire { fill: none; stroke: var(--friend); stroke-width: 2; stroke-dasharray: 5 7; animation: dash 1.4s linear infinite; opacity: .75 }
+  .link .wire.pw { stroke: var(--ok) }
+  @keyframes dash { to { stroke-dashoffset: -24 } }
+  .link text { font-family: var(--f-body); fill: var(--fg) } .link .pt { font: 600 11px var(--f-mono); fill: var(--friend) } .link .pt.pw { fill: var(--ok) } .link .sm { fill: var(--muted); font-size: 12px }
+
+  /* HyTIS */
+  .app-grid { display: grid; grid-template-columns: 300px 1fr; gap: 18px; margin-top: 28px; align-items: start }
+  .f-list { display: grid; gap: 14px }
+  .f-grp h4 { font: 500 11px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 7px }
+  .f-grp div { display: grid; gap: 5px }
+  .f-btn { position: relative; overflow: hidden; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px 9px 38px; font-size: 14px; font-weight: 500; color: var(--muted); transition: .2s; width: 100% }
+  .f-btn svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round }
+  .f-btn:hover { border-color: var(--line2); color: var(--fg) }
+  .f-btn.on { border-color: var(--friend); background: var(--friend-d); color: var(--fg) } .f-btn.on svg { stroke: var(--friend) }
+  .f-btn.on.auto::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; background: var(--friend); animation: fill 7s linear forwards }
+  @keyframes fill { from { width: 0 } to { width: 100% } }
+  .phone { position: relative; background: linear-gradient(#202326, #101213); border-radius: 30px; padding: 14px 30px; border: 1px solid #2c3033; box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 0 0 3px #08090a }
+  .phone::before, .phone::after { content: ""; position: absolute; top: 50%; width: 7px; height: 46px; border-radius: 4px; background: #08090a; transform: translateY(-50%) } .phone::before { left: 11px } .phone::after { right: 11px; height: 10px; width: 10px; border-radius: 50% }
+  .phone svg { width: 100%; display: block; border-radius: 10px; background: #0b0f12 }
+  .phone .f { display: none } .phone svg[data-f="bft"] .f-bft, .phone svg[data-f="draw"] .f-draw, .phone svg[data-f="marker"] .f-marker, .phone svg[data-f="rb"] .f-rb, .phone svg[data-f="nav"] .f-nav, .phone svg[data-f="fence"] .f-fence, .phone svg[data-f="rally"] .f-rally, .phone svg[data-f="chat"] .f-chat, .phone svg[data-f="video"] .f-video, .phone svg[data-f="medic"] .f-medic, .phone svg[data-f="devices"] .f-devices, .phone svg[data-f="topo"] .f-topo { display: inline; animation: fin .4s ease }
+  .phone text { font-family: "IBM Plex Sans", system-ui, sans-serif } .phone .mono { font-family: "IBM Plex Mono", monospace }
+  .pulse { animation: pulse 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center } @keyframes pulse { 0% { transform: scale(.6); opacity: .9 } 100% { transform: scale(2.1); opacity: 0 } }
+  .blink { animation: blink 1s steps(2) infinite } @keyframes blink { 50% { opacity: .35 } }
+  .march { stroke-dasharray: 6 6; animation: dash 1s linear infinite }
+  .f-info { margin-top: 16px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--friend); border-radius: 10px; padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px }
+  .f-info h3 { font-size: 22px; grid-column: 1 / -1 } .f-info p { color: var(--muted); font-size: 15px }
+  .biz { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 26px }
+  .biz div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px } .biz b { font: 700 18px var(--f-display); display: block; margin: 4px 0 6px } .biz p { color: var(--muted); font-size: 14px }
+
+  .phone .tb { fill: transparent; transition: fill .3s } .phone .tb[data-t="map"] { fill: #17222b }
+  #hy[data-tab="map"] .tb[data-t="map"], #hy[data-tab="layers"] .tb[data-t="layers"], #hy[data-tab="contacts"] .tb[data-t="contacts"], #hy[data-tab="devices"] .tb[data-t="devices"], #hy[data-tab="bell"] .tb[data-t="bell"] { fill: #2F6FE0 }
+
+  /* робот с лидаром */
+  .ld-stage { background: radial-gradient(ellipse at 50% 45%, #0f2230, #070c10 72%) }
+  .ld-hud { position: absolute; left: 12px; top: 12px; display: grid; gap: 6px; pointer-events: none; font: 500 12px var(--f-mono); color: var(--muted) }
+  .ld-hud div { background: rgba(8,12,14,.78); border: 1px solid var(--line2); border-radius: 7px; padding: 6px 10px; min-width: 190px; display: flex; justify-content: space-between; gap: 14px }
+  .ld-hud b { color: var(--fg); font-weight: 600 } .ld-hud .st b { color: var(--ok) } .ld-hud .st.done b { color: var(--friend) }
+  .ld-leg { position: absolute; right: 14px; top: 14px; display: flex; align-items: center; gap: 8px; font: 500 11px var(--f-mono); color: var(--muted); pointer-events: none }
+  .ld-leg i { width: 110px; height: 7px; border-radius: 4px; background: linear-gradient(90deg, #2a4bff, #19c8ff, #35e08a, #ffe45c) }
+  .ld-steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 8px }
+  .ld-steps li { counter-increment: s; position: relative; padding-left: 34px; font-size: 13.5px; color: var(--muted); line-height: 1.35 }
+  .ld-steps li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 23px; height: 23px; border-radius: 6px; border: 1px solid var(--friend); color: var(--friend); font: 600 12px/22px var(--f-mono); text-align: center }
+  .ld-steps b { display: block; color: var(--fg); font-size: 14.5px }
+  .ld-specs { display: grid; grid-template-columns: 1.1fr 1fr 1fr 1fr; gap: 14px; margin-top: 16px }
+  .ld-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px }
+  .ld-card > b, .ld-pic b { display: block; font: 700 19px var(--f-display); margin: 4px 0 12px; line-height: 1.2 }
+  .ld-pic { display: flex; flex-direction: column; justify-content: space-between; background: radial-gradient(ellipse at 50% 35%, #1a2a33, var(--panel) 72%) } .ld-pic img { width: 100%; display: block; filter: drop-shadow(0 16px 22px rgba(0,0,0,.55)) } .ld-pic b { margin-bottom: 0 }
+  @media (max-width: 1080px) { .ld-specs { grid-template-columns: 1fr 1fr } }
+  @media (max-width: 700px) { .ld-specs { grid-template-columns: 1fr } .ld-leg { display: none } .ld-hud div { min-width: 150px } }
+
+  /* преимущества */
+  .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 28px }
+  .pcard { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; transition: border-color .25s, transform .25s }
+  .pcard:hover { border-color: var(--friend); transform: translateY(-3px) }
+  .pcard svg { width: 30px; height: 30px; stroke: var(--friend); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 12px }
+  .pcard h3 { font-size: 19px; margin-bottom: 6px } .pcard p { color: var(--muted); font-size: 14.5px }
+  .role .sym { font-size: 19px } .role .sym.fo { font-size: 17px }
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease } .reveal.in { opacity: 1; transform: none }
+  .final { text-align: center; padding: 90px 0 30px } .final h2 { font-size: clamp(30px, 5vw, 60px); margin: 12px 0 } .final .lead { margin: 0 auto }
+  @media (max-width: 1080px) { .hero2 { grid-template-columns: 1fr; padding-top: 90px } .hero-fig { height: 70vh; order: 2 } .kit-grid, .app-grid { grid-template-columns: 1fr } .kit-info { max-height: none } .f-list { grid-template-columns: repeat(3, 1fr) } .topbar a { display: none } .biz { grid-template-columns: 1fr } }
+  .sec.wrap { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)) }
+  @media (max-width: 700px) { .f-list { grid-template-columns: 1fr } .f-grp div { grid-template-columns: 1fr 1fr } .f-btn { font-size: 13px; padding: 8px 8px 8px 32px } .f-btn svg { left: 8px } .kit-hint { display: none } .hero-fig { height: 56vh } .f-info { grid-template-columns: 1fr } .stats { grid-template-columns: repeat(2, auto) } .phone { padding: 8px 14px; border-radius: 18px } .kit-stage { height: 60vh; min-height: 380px } .hs { font-size: 11px } }
+
+  .a-item .more em { display: none }
+  @media (max-width: 1080px) { .a-grid { grid-template-columns: 1fr } .a-side { max-height: none } }
+  @media (max-width: 859px) { .a-stage { height: 62vh; min-height: 380px } .a-lab { font-size: 11px; padding: 3px 7px } .a-lab small { display: none } .a-lab.big { font-size: 12px } .a-tabs button { padding: 8px 10px; font-size: 13px } }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important } }
+</style>
+</head>
+<body>
+<div id="prog"></div>
+<div class="topbar">
+  <b>СОЛДАТ <i>БУДУЩЕГО</i></b>
+  <a href="#kit">Комплект</a><a href="#link">Соединение</a><a href="#app">HyTIS</a><a href="#robot">Робот</a><a href="#roles">Роли</a><a href="#asuv">АСУВ</a><a href="#plus">Преимущества</a>
+</div>
+
+<header class="hero2 wrap" id="top">
+  <div>
+    <div class="eyebrow">Комплект связи и управления бойца · Hycomms + HyTIS</div>
+    <h1>Солдат <span>будущего</span></h1>
+    <p class="lead">Каждый боец видит своих на карте, слышит группу и получает задачу на экран. Радиостанции, компьютер, командный терминал и гарнитура работают как одна система и питаются от одного аккумулятора.</p>
+    <div class="stats">
+      <div><b>AES-256</b><span>шифрование голоса и данных</span></div>
+      <div><b>30–512 МГц</b><span>многодиапазонная связь</span></div>
+      <div><b>до 4 Мбит/с</b><span>видео и данные по радио</span></div>
+      <div><b>6 портов</b><span>один компьютер на всё</span></div>
+    </div>
+    <div class="cta"><a class="btn pri" href="#kit">Смотреть комплект в 3D</a><a class="btn" href="#app">Возможности HyTIS</a></div>
+  </div>
+  <div class="hero-fig" id="heroFig">
+    <span class="sw"></span>
+    <img class="a" src="img/hero_kit.png" alt="Комплект «Солдат будущего» на бойце, вид спереди">
+    <img class="b" src="img/hero_kit_back.png" alt="Комплект «Солдат будущего» на бойце, вид сзади">
+    <button class="btn" id="heroFlip">Вид сзади ⟲</button>
+  </div>
+</header>
+
+<!-- ===================== КОМПЛЕКТ ===================== -->
+<section class="sec wrap" id="kit">
+  <div class="sec-h"><div class="eyebrow">01 · Комплект в 3D</div><h2>Выберите устройство — оно покажется отдельно</h2>
+    <p class="lead">Модели сделаны по фотографиям реального комплекта. Крутите мышкой, нажимайте на метки на бойце или выбирайте устройство в ряду — справа появится описание.</p></div>
+  <div class="dev-row" id="devRow" role="tablist" aria-label="Оборудование"></div>
+  <div class="kit-grid">
+    <div class="kit-stage" id="kitStage">
+      <canvas id="kitCv" aria-label="3D-модель комплекта"></canvas>
+      <div class="kit-ov" id="kitOv"></div>
+      <div class="kit-tools" id="kitTools"></div>
+      <div class="kit-hint">тяните — вращать · Ctrl + колесо — масштаб</div>
+      <div class="kit-load" id="kitLoad">Загрузка 3D-модели…</div>
+    </div>
+    <aside class="kit-info" id="kitInfo" aria-live="polite"></aside>
+  </div>
+</section>
+
+<!-- ===================== СОЕДИНЕНИЕ ===================== -->
+<section class="sec wrap" id="link">
+  <div class="sec-h"><div class="eyebrow">02 · Одна система</div><h2>Всё подключается к одному компьютеру</h2>
+    <p class="lead">Компьютер IEC — центр комплекта. Порт HOST ведёт к командному терминалу, BATT — к аккумулятору, четыре порта PAN свободны для радиостанций, гарнитуры и приборов. Подключённое устройство определяется автоматически.</p></div>
+  <div class="link reveal" id="linkBox"></div>
+</section>
+
+<!-- ===================== HyTIS ===================== -->
+<section class="sec wrap" id="app">
+  <div class="sec-h"><div class="eyebrow">03 · Приложение HyTIS</div><h2>Вся обстановка — на одном экране</h2>
+    <p class="lead">HyTIS установлен на командном терминале бойца. Выберите функцию слева — экран покажет, как она выглядит в работе. Позывные и координаты условные.</p></div>
+  <div class="biz reveal">
+    <div><span class="num">A</span><b>Понимать обстановку</b><p>Свои силы на карте в реальном времени, тактическая графика, видео с приборов наблюдения и БПЛА.</p></div>
+    <div><span class="num">B</span><b>Планировать задачу</b><p>Задача рисуется на карте, согласуется всей группой и рассылается голосом, файлом или тактическим сообщением.</p></div>
+    <div><span class="num">C</span><b>Действовать вместе</b><p>Голос, чат и видео внутри группы, навигация на цель и вызов медика одной кнопкой.</p></div>
+  </div>
+  <div class="app-grid">
+    <div class="f-list" id="fList"></div>
+    <div>
+      <div class="phone"><svg id="hy" viewBox="0 0 900 420" data-f="bft" role="img" aria-label="Экран приложения HyTIS"></svg></div>
+      <div class="f-info" id="fInfo" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== РОБОТ С ЛИДАРОМ ===================== -->
+<section class="sec wrap" id="robot">
+  <div class="sec-h"><div class="eyebrow">04 · Разведка без риска</div><h2>Робот с лидаром входит первым</h2>
+    <p class="lead">Робот-разведчик ZC-380 PRO заезжает в здание раньше группы. Лидар LD-01 на его крыше десять раз в секунду сканирует пространство вокруг и собирает из измерений объёмную карту помещения. Ниже — как это выглядит: робот едет, карта растёт.</p></div>
+  <div class="kit-grid">
+    <div class="kit-stage ld-stage" id="ldStage">
+      <canvas id="ldCv" aria-label="Демонстрация: робот строит 3D-карту здания"></canvas>
+      <div class="ld-hud" id="ldHud"></div>
+      <div class="ld-leg"><span>пол</span><i></i><span>потолок</span></div>
+      <div class="kit-tools" id="ldTools"></div>
+      <div class="kit-hint">демонстрация · здание условное</div>
+      <div class="kit-load" id="ldLoad">Загрузка демонстрации…</div>
+    </div>
+    <aside class="kit-info">
+      <div class="eyebrow">Для чего он нужен</div>
+      <h3>Группа знает планировку ещё до входа</h3>
+      <p>Оператор ведёт робота с пульта и видит картинку с камер. Лидар в это время строит 3D-карту: стены, проёмы, мебель, укрытия.</p>
+      <ul class="plus">
+        <li>Людям не нужно входить в неизвестное помещение вслепую</li>
+        <li>Работает в полной темноте и без спутниковой навигации</li>
+        <li>Карта появляется на ходу — её видно на планшете или ноутбуке в сети оператора</li>
+        <li>Запись сохраняется и выгружается для штаба в форматах LAS и XYZ</li>
+        <li>Лазер класса 1 — безопасен для глаз</li>
+      </ul>
+      <div class="sub">Как это работает</div>
+      <ol class="ld-steps">
+        <li><b>Заезжает</b>Оператор направляет робота внутрь с пульта</li>
+        <li><b>Сканирует</b>Лидар видит на 40 м вокруг, 10 раз в секунду</li>
+        <li><b>Строит карту</b>Точки складываются в объёмную модель</li>
+        <li><b>Группа входит</b>Уже зная, где стены, двери и укрытия</li>
+      </ol>
+    </aside>
+  </div>
+  <div class="ld-specs">
+    <div class="ld-card ld-pic reveal"><img src="img/robot_lidar.png" alt="Робот ZC-380 PRO с лидаром LD-01" loading="lazy"><div><span class="num">ZC-380 PRO + LD-01</span><b>Переносит и запускает один человек</b></div></div>
+    <div class="ld-card reveal"><span class="num">ШАССИ · ZC-380 PRO</span><b>Робот-разведчик</b>
+      <dl class="spec"><dt>Размеры</dt><dd>337 × 300 × 155 мм</dd><dt>Масса</dt><dd>5 кг, несёт до 5 кг нагрузки</dd><dt>Скорость</dt><dd>до 7,2 км/ч, разворот на месте</dd><dt>Проходимость</dt><dd>подъём до 35°, препятствие до 170 мм</dd><dt>Камеры</dt><dd>две, 1080p, ночной ИК-режим, обзор 137°</dd><dt>Связь</dt><dd>5,8 ГГц, около 1 км в прямой видимости</dd><dt>Работа</dt><dd>около 3 часов без модулей, зарядка около 1,5 часа</dd><dt>Защита</dt><dd>IP67, от −20 до +50 °C</dd><dt>Без модулей</dt><dd>выдерживает падение с 3 м, сам переворачивается, идёт по лестнице</dd></dl></div>
+    <div class="ld-card reveal"><span class="num">МОДУЛЬ · LD-01</span><b>Лидар</b>
+      <dl class="spec"><dt>Дальность</dt><dd>от 0,5 до 40 м</dd><dt>Частота</dt><dd>10 сканов в секунду</dd><dt>Угловое разрешение</dt><dd>менее 0,15°</dd><dt>Лазер</dt><dd>905 нм, класс 1</dd><dt>Размеры</dt><dd>150 × 80 × 105 мм, 960 г</dd><dt>Защита</dt><dd>IP67</dd><dt>Память</dt><dd>256 ГБ — до 40 часов записи</dd><dt>Выгрузка</dt><dd>LAS, XYZ</dd><dt>Просмотр</dt><dd>в браузере: планшет, телефон, ноутбук</dd></dl></div>
+    <div class="ld-card reveal"><span class="num">ПУЛЬТ ОПЕРАТОРА</span><b>Управление и видео</b>
+      <dl class="spec"><dt>Экран</dt><dd>5,5″, 1920 × 1080, до 1000 нит — видно на солнце</dd><dt>Работа</dt><dd>до 13 часов</dd><dt>Масса</dt><dd>850 г</dd><dt>Система</dt><dd>Android, сенсорный экран и кнопки</dd><dt>Защита</dt><dd>IP53</dd></dl></div>
+  </div>
+</section>
+
+<!-- ===================== РОЛИ ===================== -->
+<section class="sec wrap" id="roles">
+  <div class="sec-h"><div class="eyebrow">05 · Комплект под задачу</div><h2>Каждой роли — свой набор</h2>
+    <p class="lead">Система модульная: основа у всех одна, а состав меняется по роли. В HyTIS у каждой роли свой значок на карте — командир сразу видит, кто где.</p></div>
+  <div class="rgrid">
+    <div class="role reveal"><div class="role-h"><div class="sym">★</div><div><h3>Командир группы</h3><small>Team Leader</small></div></div>
+      <ul><li>Тактическая гарнитура</li><li>Командная радиостанция</li><li>Многодиапазонная радиостанция</li><li>Компьютер IEC</li><li>Командный терминал с HyTIS</li><li>Два аккумулятора</li></ul>
+      <h4>Доступно в HyTIS</h4><ul class="plus"><li>Видеозвонки, видео с БПЛА и приборов наблюдения</li><li>Назначение точки сбора для всей группы</li></ul></div>
+    <div class="role reveal"><div class="role-h"><div class="sym">⚡</div><div><h3>Связист</h3><small>Signal</small></div></div>
+      <ul><li>Комплект командира группы</li></ul>
+      <h4>Доступно в HyTIS</h4><ul class="plus"><li>Ретрансляция голоса между сетями (Voice Relay)</li><li>Видеозвонки и видео с БПЛА</li><li>Топология радиосети на карте</li></ul></div>
+    <div class="role reveal"><div class="role-h"><div class="sym med">+</div><div><h3>Медик</h3><small>Medic</small></div></div>
+      <ul><li>Комплект командира группы</li></ul>
+      <h4>Доступно в HyTIS</h4><ul class="plus"><li>Мгновенно получает «Вызов медика» с точкой на карте</li><li>Навигация к раненому с расчётом времени</li></ul></div>
+    <div class="role reveal"><div class="role-h"><div class="sym fo">◉</div><div><h3>Передовой наблюдатель</h3><small>Forward Observer</small></div></div>
+      <ul><li>Комплект командира группы</li><li>Беспилотник</li><li>Тепловизионный прицел</li><li>Прибор наблюдения</li></ul>
+      <h4>Доступно в HyTIS</h4><ul class="plus"><li>Картинка с приборов сразу попадает в сеть группы</li><li>Цели отмечаются на общей карте</li></ul></div>
+    <div class="role reveal"><div class="role-h"><div class="sym">●</div><div><h3>Солдат</h3><small>Soldier</small></div></div>
+      <ul><li>Тактическая гарнитура</li><li>Командная радиостанция</li><li>Компьютер IEC</li><li>Аккумулятор</li><li>Командный терминал — в расширенном комплекте</li></ul>
+      <h4>Что это даёт</h4><ul class="plus"><li>Позиция бойца автоматически видна командиру на карте</li><li>Вызов медика кнопкой прямо на радиостанции</li></ul></div>
+  </div>
+</section>
+
+<!-- ===================== АСУВ ===================== -->
+<section class="sec wrap" id="asuv">
+  <div class="sec-h"><div class="eyebrow">06 · Место комплекта в системе</div><h2>АСУВ — нервная система подразделения</h2>
+  <p class="lead">Автоматизированная система управления войсками — это связь, компьютеры и программы, которые работают вместе. Снизу вверх идут данные: где свои, где противник, кто ранен. Сверху вниз — приказы. «Солдат будущего» — нижний и самый важный уровень: именно боец первым видит, что происходит. Ниже — четыре 3D-схемы: из каких слоёв состоит АСУВ, какой цикл проходит каждое решение, как данные становятся разведкой и насколько путь с АСУВ короче ручного.</p></div>
+  <div class="a-tabs" id="aTabs" role="tablist">
+    <button data-m="layers" class="on"><i>01</i>Пять слоёв и РЭБ</button>
+    <button data-m="cycle"><i>02</i>Цикл решения</button>
+    <button data-m="funnel"><i>03</i>Данные → разведка</button>
+    <button data-m="compare"><i>04</i>Было → стало</button>
+  </div>
+  <div class="a-legend"><span style="--c:var(--friend)">данные и приказы</span><span style="--c:var(--ok)">обратная связь</span><span style="--c:var(--prop)">РЭБ / ручные передачи</span><span style="--c:var(--hostile)">помехи и потери</span></div>
+  <div class="a-grid">
+    <div class="a-stage" id="aStage">
+      <canvas id="aCv" aria-label="3D-схема АСУВ"></canvas>
+      <div class="a-ov" id="aOv"></div>
+      <div class="a-hint">тяните — вращать · нажмите на элемент</div>
+      <div class="a-fail" id="aFail"><div><b>3D не загрузилось</b><br>Нужен интернет (библиотека Three.js) и браузер с WebGL. Описание — в панели справа.</div></div>
+    </div>
+    <aside class="a-side" id="aSide" aria-live="polite"></aside>
+  </div>
+</section>
+
+<!-- ===================== ПРЕИМУЩЕСТВА ===================== -->
+<section class="sec wrap" id="plus">
+  <div class="sec-h"><div class="eyebrow">07 · Итог</div><h2>Что получает подразделение</h2>
+    <p class="lead">Причины, по которым группа с комплектом действует быстрее и согласованнее.</p></div>
+  <div class="pgrid" id="pGrid"></div>
+  <div class="final reveal"><div class="eyebrow">Солдат будущего</div><h2>Видеть. Слышать. Действовать вместе.</h2><p class="lead">Комплект готов к показу: модель можно покрутить, устройства — рассмотреть по одному, а приложение — попробовать прямо на этой странице.</p>
+    <div class="cta" style="justify-content:center"><a class="btn pri" href="#kit">Вернуться к комплекту</a><a class="btn" href="#top">Наверх ↑</a></div></div>
+</section>
+
+<footer class="wrap">Солдат будущего · интерактивная презентация комплекта · характеристики — по материалам Hycomms «Solution for Soldier System» · 3D-модели выполнены по фотографиям комплекта · сценарии, позывные и координаты условные</footer>
+
+<script src="models/kit.js"></script>
+<!-- ===================== страница, схема подключения, HyTIS ===================== -->
+<script>
+(function () {
+  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+  const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- страница: прогресс, меню, появление ---------- */
+  const prog = $('#prog'), nav = $$('.topbar a'), secs = nav.map(a => $(a.getAttribute('href')));
+  addEventListener('scroll', () => {
+    const h = document.documentElement; prog.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+    let k = -1; secs.forEach((s, i) => { if (s.getBoundingClientRect().top < innerHeight * .45) k = i; }); nav.forEach((a, i) => a.classList.toggle('on', i === k));
+  }, { passive: true });
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+  const watch = () => $$('.reveal:not(.in)').forEach(el => io.observe(el));
+  const fig = $('#heroFig'), flip = $('#heroFlip');
+  flip.onclick = () => { const b = fig.classList.toggle('flip'); flip.textContent = b ? 'Вид спереди ⟲' : 'Вид сзади ⟲'; };
+
+  /* ---------- схема подключения ---------- */
+  (function () {
+    const N = [
+      { x: 20, y: 22, t: 'Командный терминал', s: 'карта, чат, видео — HyTIS', img: 'img/dev_terminal.png', port: 'HOST', py: 150 },
+      { x: 20, y: 167, t: 'Тактическая гарнитура', s: 'голос всех радиостанций', img: 'img/dev_headset.png', port: 'PAN', py: 215 },
+      { x: 20, y: 312, t: 'Командная радиостанция', s: 'связь внутри группы', img: 'img/dev_teamradio.png', port: 'PAN', py: 280 },
+      { x: 690, y: 22, t: 'Аккумулятор', s: 'питание всего комплекта', img: 'img/dev_battery.png', port: 'BATT', py: 150, pw: 1 },
+      { x: 690, y: 167, t: 'Многодиапазонная радиостанция', s: 'дальняя связь и данные', img: 'img/dev_mbr.png', port: 'PAN', py: 215 },
+      { x: 690, y: 312, t: 'Приборы наблюдения и БПЛА', s: 'видео и цели — сразу в сеть', port: 'PAN', py: 280 },
+    ];
+    let s = `<svg viewBox="0 0 1000 430" role="img" aria-label="Схема подключения устройств к компьютеру IEC">`;
+    N.forEach(n => {
+      const L = n.x < 500, x0 = L ? n.x + 290 : n.x, x1 = L ? 418 : 582, y0 = n.y + 48;
+      s += `<path class="wire${n.pw ? ' pw' : ''}" d="M${x0} ${y0} C${(x0 + x1) / 2} ${y0} ${(x0 + x1) / 2} ${n.py} ${x1} ${n.py}"/>`;
+      s += `<text class="pt${n.pw ? ' pw' : ''}" x="${L ? x1 - 6 : x1 + 6}" y="${n.py - 7}" text-anchor="${L ? 'end' : 'start'}">${n.port}</text>`;
+      s += `<rect x="${n.x}" y="${n.y}" width="290" height="96" rx="12" fill="#15222A" stroke="#2C404B"/>`;
+      s += n.img ? `<image href="${n.img}" x="${n.x + 6}" y="${n.y + 6}" width="84" height="84"/>` : `<g transform="translate(${n.x + 48} ${n.y + 48})" fill="none" stroke="#68C3FF" stroke-width="2"><circle r="9"/><path d="M-30-14h14M16-14h14M-30 14h14M16 14h14M-16-14l8 8M16-14l-8 8M-16 14l8-8M16 14l-8-8"/><circle cx="-30" cy="-14" r="6"/><circle cx="30" cy="-14" r="6"/><circle cx="-30" cy="14" r="6"/><circle cx="30" cy="14" r="6"/></g>`;
+      const w = n.t.split(' '), cut = n.t.length > 22 ? Math.ceil(w.length / 2) : w.length;
+      s += `<text x="${n.x + 98}" y="${n.y + (cut < w.length ? 34 : 43)}" font-size="15" font-weight="600">${w.slice(0, cut).join(' ')}${cut < w.length ? `<tspan x="${n.x + 98}" dy="18">${w.slice(cut).join(' ')}</tspan>` : ''}</text>`;
+      s += `<text class="sm" x="${n.x + 98}" y="${n.y + (cut < w.length ? 74 : 64)}">${n.s}</text>`;
+    });
+    s += `<circle cx="500" cy="215" r="112" fill="rgba(104,195,255,.06)" stroke="#2C404B"/><image href="img/dev_iec.png" x="395" y="105" width="210" height="210"/>`;
+    s += `<text x="500" y="352" text-anchor="middle" font-size="17" font-weight="700" font-family="Tektur, sans-serif">Компьютер IEC</text><text class="sm" x="500" y="372" text-anchor="middle">сам определяет подключённые устройства</text></svg>`;
+    $('#linkBox').innerHTML = s;
+  })();
+
+  /* ================= HyTIS: экран приложения ================= */
+  const C = { blue: '#2F6FE0', fr: '#68C3FF', ho: '#FF5A5F', am: '#FFC24B', ok: '#5FD39A', med: '#FF8597', fg: '#E8EEF0', mu: '#9FB0B7', pn: 'rgba(8,12,14,.9)' };
+  const U = {
+    tl: { x: 470, y: 232, n: 'БАРС-1', r: 'tl' }, tig: { x: 300, y: 292, n: 'Тигр', r: 's' }, tom: { x: 392, y: 262, n: 'Том', r: 's' }, jer: { x: 372, y: 150, n: 'Джерри', r: 'fo' },
+    rub: { x: 650, y: 205, n: 'Руби', r: 'sig' }, tmy: { x: 585, y: 285, n: 'Томми', r: 'med' }, jak: { x: 705, y: 322, n: 'Джек', r: 's' }
+  };
+  const T = (x, y, t, o = {}) => `<text x="${x}" y="${y}" font-size="${o.s || 11}" fill="${o.c || C.fg}" font-weight="${o.w || 500}" text-anchor="${o.a || 'start'}"${o.m ? ' class="mono"' : ''}${o.h ? ' stroke="#060a0c" stroke-width="3" paint-order="stroke"' : ''}>${t}</text>`;
+  const glyph = r => r === 'tl' ? '<path d="M0-6.5l1.9 4 4.4.5-3.3 3 .9 4.3L0 3.2l-3.9 2.1.9-4.3-3.3-3 4.4-.5z" fill="#fff"/>' : r === 'fo' ? '<ellipse rx="6.5" ry="3.8" fill="none" stroke="#fff" stroke-width="1.4"/><circle r="1.9" fill="#fff"/>' : r === 'sig' ? '<path d="M-6 4l4-8 4 8 4-8" fill="none" stroke="#fff" stroke-width="1.6"/>' : r === 'med' ? '<path d="M-1.8-6h3.6v4.2H6v3.6H1.8V6h-3.6V1.8H-6v-3.6h4.2z" fill="#fff"/>' : '<circle r="2.4" fill="#fff"/>';
+  const unit = (u, lab = 1) => `<g transform="translate(${u.x} ${u.y})"><circle r="11.5" fill="#1b46b8" stroke="#fff" stroke-width="1.6"/>${glyph(u.r)}</g>` + (lab ? T(u.x, u.y + 25, u.n, { a: 'middle', h: 1, s: 11.5, w: 600 }) : '');
+  const hostile = (x, y, l) => `<path d="M${x} ${y - 11}l11 11-11 11-11-11z" fill="${C.ho}" stroke="#fff" stroke-width="1.4"/>` + (l ? T(x, y + 25, l, { a: 'middle', h: 1, m: 1, s: 10 }) : '');
+  const friendly = (x, y, l) => `<rect x="${x - 10}" y="${y - 7}" width="20" height="14" rx="2" fill="#22D3EE" stroke="#fff" stroke-width="1.4"/>` + (l ? T(x, y + 22, l, { a: 'middle', h: 1, m: 1, s: 10 }) : '');
+  const unknown = (x, y, l) => `<g fill="#FACC15" stroke="#fff" stroke-width="1"><circle cx="${x - 5}" cy="${y}" r="5.5"/><circle cx="${x + 5}" cy="${y}" r="5.5"/><circle cx="${x}" cy="${y - 5}" r="5.5"/><circle cx="${x}" cy="${y + 5}" r="5.5"/></g>` + (l ? T(x, y + 25, l, { a: 'middle', h: 1, m: 1, s: 10 }) : '');
+  const panel = (x, y, w, h, title) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${C.pn}"/><rect x="${x}" y="${y}" width="${w}" height="30" fill="#0d1418"/>` + T(x + 14, y + 20, title, { s: 13, w: 600 }) + T(x + w - 22, y + 20, '✕', { s: 12, c: C.mu });
+  const tagline = (x1, y1, x2, y2, col, t) => { const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, a = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI, f = a > 90 || a < -90 ? a + 180 : a, w = t.length * 6.4 + 14; return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="2.2"/><g transform="translate(${mx} ${my}) rotate(${f})"><rect x="${-w / 2}" y="-9" width="${w}" height="18" rx="9" fill="#fff"/><text y="4" text-anchor="middle" font-size="10.5" font-weight="600" fill="#0b0f12" class="mono">${t}</text></g>`; };
+
+  function mapBg() {
+    let s = `<rect x="54" width="846" height="420" fill="#101a17"/>`, r = 7; const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+    s += `<path d="M54 0h300c40 60-30 110-110 120S90 200 54 190z" fill="#15251c"/><path d="M900 420H560c-30-70 60-110 150-120s150-60 190-40z" fill="#16261d"/><path d="M620 0h280v150c-80 30-190 10-240-50S600 30 620 0z" fill="#13211b"/>`;
+    s += `<path d="M54 372c120-30 190 20 300-6s170-70 290-50 170 60 256 30" fill="none" stroke="#12303a" stroke-width="20" stroke-linecap="round"/><path d="M54 372c120-30 190 20 300-6s170-70 290-50 170 60 256 30" fill="none" stroke="#173b47" stroke-width="9"/>`;
+    for (let i = 0; i < 9; i++) s += `<path d="M${54 + i * 100} 0c${20 + rnd() * 40} ${120 + rnd() * 60} ${-40 + rnd() * 30} ${240} ${30 + rnd() * 50} 420" fill="none" stroke="rgba(160,200,170,.045)" stroke-width="1"/>`;
+    s += `<path d="M54 232h846M250 0l60 420M560 0l-40 420M54 120l846 70" fill="none" stroke="#2b3b36" stroke-width="3.2"/><path d="M54 232h846M250 0l60 420M560 0l-40 420M54 120l846 70" fill="none" stroke="#3a4c46" stroke-width="1"/>`;
+    const blk = (x0, y0, nx, ny, w, h) => { for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) if (rnd() > .18) s += `<rect x="${x0 + i * (w + 5) + rnd() * 2}" y="${y0 + j * (h + 5) + rnd() * 2}" width="${w - rnd() * 4}" height="${h - rnd() * 3}" fill="#27352f" stroke="#33443d" stroke-width=".6"/>`; };
+    blk(330, 248, 7, 4, 20, 13); blk(585, 60, 8, 3, 22, 14); blk(120, 140, 4, 3, 18, 12); blk(600, 250, 5, 2, 22, 13);
+    for (let x = 114; x < 900; x += 60) s += `<path d="M${x} 0V420" stroke="rgba(255,255,255,.035)"/>`; for (let y = 60; y < 420; y += 60) s += `<path d="M54 ${y}H900" stroke="rgba(255,255,255,.035)"/>`;
+    return s;
+  }
+  function chrome() {
+    const ic = (y, d, badge, t) => `<rect class="tb" data-t="${t}" x="6" y="${y - 21}" width="42" height="42" rx="4"/><g transform="translate(27 ${y})" fill="none" stroke="#dfe7ea" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</g>` + (badge ? `<circle cx="38" cy="${y - 9}" r="7" fill="${C.ho}"/>` + T(38, y - 5.5, badge, { a: 'middle', s: 9, w: 700 }) : '');
+    let s = `<rect width="54" height="420" fill="#090c0f"/><rect class="tb" data-t="map" x="6" y="8" width="42" height="42" rx="4"/><g transform="translate(27 29)" fill="none" stroke="#fff" stroke-width="2"><circle r="10"/><circle r="3.5" fill="#fff"/><path d="M0-15v6M0 9v6M-15 0h6M9 0h6"/></g>`;
+    s += ic(92, '<path d="M0-9l11 6-11 6-11-6zM-11 3l11 6 11-6"/>', '', 'layers') + ic(156, '<rect x="-10" y="-9" width="20" height="18" rx="2"/><circle cx="-2" cy="-2" r="3"/><path d="M-7 6c1-4 9-4 10 0"/>', '2', 'contacts') + ic(220, '<rect x="-10" y="-10" width="8" height="8"/><rect x="2" y="-10" width="8" height="8"/><rect x="-10" y="2" width="8" height="8"/><path d="M6 2v8M2 6h8"/>', '', 'devices') + ic(376, '<path d="M-8 6c2-2 2-5 2-8a6 6 0 0112 0c0 3 0 6 2 8zM-2 9a2 2 0 004 0"/>', '5', 'bell');
+    s += T(64, 15, '09:30', { m: 1, s: 10.5, c: C.mu }) + `<rect x="270" y="6" width="372" height="22" rx="3" fill="rgba(4,7,8,.7)"/>` + T(456, 21, 'N 43.23870°  E 76.94512° · 812 м · ±10 м · 4 км/ч', { a: 'middle', m: 1, s: 10.5 });
+    s += T(838, 22, 'БАРС-1', { a: 'end', s: 12, w: 700, h: 1 }) + T(838, 35, 'командир группы', { a: 'end', s: 9.5, c: C.mu, h: 1 }) + `<g transform="translate(866 25)"><circle r="14" fill="#1b46b8" stroke="#fff" stroke-width="1.6"/><g transform="scale(1.25)">${glyph('tl')}</g></g>`;
+    s += `<g transform="translate(866 86)"><circle r="14" fill="${C.pn}" stroke="#52646c"/><path d="M0-9l4 9h-8z" fill="${C.ho}"/><path d="M0 9l4-9h-8z" fill="#cfd8dc"/></g><rect x="852" y="124" width="28" height="68" rx="14" fill="${C.pn}" stroke="#52646c"/>` + T(866, 147, '+', { a: 'middle', s: 17 }) + T(866, 181, '−', { a: 'middle', s: 17 });
+    s += `<g transform="translate(866 232)"><circle r="14" fill="${C.pn}" stroke="#52646c"/><circle cx="-4" cy="-2" r="2.6" fill="#dfe7ea"/><circle cx="4" cy="-2" r="2.6" fill="#dfe7ea"/><path d="M-8 6c1-4 15-4 16 0" fill="none" stroke="#dfe7ea" stroke-width="1.6"/></g><g transform="translate(866 276)"><circle r="14" fill="${C.pn}" stroke="#52646c"/><circle r="6" fill="none" stroke="#dfe7ea" stroke-width="1.6"/><circle r="1.8" fill="#dfe7ea"/></g>`;
+    return s;
+  }
+  function layers() {
+    const u = U, L = {};
+    // --- свои силы
+    L.bft = Object.values(u).map(p => `<circle class="pulse" cx="${p.x}" cy="${p.y}" r="12" fill="none" stroke="${C.fr}" stroke-width="2" style="animation-delay:${(p.x % 7) / 5}s"/>`).join('') +
+      `<path d="M210 350q50-20 90-58" fill="none" stroke="${C.fr}" stroke-width="1.6" stroke-dasharray="2 6" stroke-linecap="round"/><path d="M760 392q-20-40-55-70" fill="none" stroke="${C.fr}" stroke-width="1.6" stroke-dasharray="2 6" stroke-linecap="round"/>` +
+      `<rect x="66" y="286" width="148" height="124" rx="6" fill="${C.pn}"/>` + T(78, 304, 'РОЛИ НА КАРТЕ', { m: 1, s: 9.5, c: C.mu }) +
+      [['tl', 'Командир'], ['s', 'Солдат'], ['fo', 'Наблюдатель'], ['sig', 'Связист'], ['med', 'Медик']].map((r, i) => `<g transform="translate(86 ${322 + i * 19}) scale(.72)"><circle r="11.5" fill="#1b46b8" stroke="#fff" stroke-width="1.6"/>${glyph(r[0])}</g>` + T(102, 326 + i * 19, r[1], { s: 11 })).join('');
+    // --- тактическая графика
+    L.draw = `<circle cx="640" cy="130" r="58" fill="rgba(255,194,75,.12)" stroke="${C.am}" stroke-width="2" stroke-dasharray="7 5"/>` + T(640, 134, 'Сектор А', { a: 'middle', h: 1, s: 12, w: 600 }) +
+      `<g transform="rotate(-9 190 180)"><rect x="118" y="134" width="150" height="94" fill="rgba(104,195,255,.12)" stroke="${C.fr}" stroke-width="2"/><circle cx="118" cy="134" r="4" fill="#fff"/><circle cx="268" cy="228" r="4" fill="#fff"/></g>` +
+      `<rect x="66" y="262" width="176" height="52" rx="4" fill="rgba(255,255,255,.92)"/>` + T(74, 278, 'Прямоугольник 1', { s: 11, w: 700, c: '#0b0f12' }) + T(74, 292, '497 × 440 м', { s: 10.5, c: '#0b0f12', m: 1 }) + T(74, 306, 'Площадь 0,22 км²', { s: 10.5, c: '#0b0f12', m: 1 }) +
+      `<path d="M430 345c40 30 90 30 130-5" fill="none" stroke="${C.ho}" stroke-width="3" stroke-linecap="round"/><path d="M548 330l14 9-16 5" fill="none" stroke="${C.ho}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<rect x="372" y="372" width="250" height="40" rx="6" fill="rgba(255,255,255,.94)"/><g fill="none" stroke="#0b0f12" stroke-width="1.8" transform="translate(398 392)"><path d="M0-9a6 6 0 016 6c0 4-6 11-6 11S-6 1-6-3a6 6 0 016-6z"/><circle cx="40" r="8"/><rect x="72" y="-8" width="16" height="16"/><ellipse cx="120" rx="10" ry="7"/><path d="M152-7l10 2 4 9-9 5-9-6z"/><path d="M186 6c2-10 6 6 10-6s6 4 8-2"/></g><rect x="427" y="376" width="24" height="32" rx="4" fill="none" stroke="${C.blue}" stroke-width="2"/>`;
+    // --- метки и доклады
+    L.marker = hostile(238, 168, 'R.8.090537') + friendly(610, 118, 'F.8.091038') + unknown(520, 352, 'N.8.091039') +
+      `<circle class="pulse" cx="238" cy="168" r="14" fill="none" stroke="${C.ho}" stroke-width="2"/>` + panel(54, 0, 232, 236, 'Новая метка') +
+      [['Свой', friendly(0, 0)], ['Противник', hostile(0, 0)], ['Нейтр.', `<rect x="-8" y="-8" width="16" height="16" fill="#22C55E" stroke="#fff" stroke-width="1.4"/>`], ['Неизв.', unknown(0, 0)]].map((m, i) => `<g transform="translate(${88 + i * 55} 62) scale(.85)">${m[1]}</g>` + T(88 + i * 55, 92, m[0], { a: 'middle', s: 9, c: i === 1 ? C.fg : C.mu })).join('') +
+      `<rect x="120" y="42" width="46" height="58" rx="4" fill="none" stroke="${C.ho}" stroke-width="1.5"/>` + T(68, 124, 'Тип', { s: 11, c: C.mu }) + T(272, 124, 'Наземная цель ›', { a: 'end', s: 11 }) + `<path d="M64 136h212" stroke="#27343b"/>` +
+      T(68, 158, 'R.8.090537', { m: 1, s: 11 }) + T(272, 152, 'N 43.24102°', { a: 'end', m: 1, s: 9.5, c: C.mu }) + T(272, 164, 'E 76.93844°', { a: 'end', m: 1, s: 9.5, c: C.mu }) +
+      `<rect x="68" y="182" width="62" height="34" rx="4" fill="#111a1f" stroke="#27343b"/><path d="M84 207l10-12 8 8 6-5 10 9z" fill="#3b4b53"/>` + T(140, 204, '+ фото', { s: 10.5, c: C.mu }) + `<rect x="196" y="186" width="78" height="28" rx="4" fill="${C.blue}"/>` + T(235, 204, 'Отправить', { a: 'middle', s: 11, w: 600 });
+    // --- дальность и азимут
+    L.rb = `<circle cx="${u.tl.x}" cy="${u.tl.y}" r="70" fill="none" stroke="rgba(255,255,255,.4)" stroke-dasharray="4 5"/><circle cx="${u.tl.x}" cy="${u.tl.y}" r="140" fill="none" stroke="rgba(255,255,255,.28)" stroke-dasharray="4 5"/>` + T(u.tl.x + 74, u.tl.y - 6, '100 м', { m: 1, s: 9.5, c: C.mu, h: 1 }) + T(u.tl.x + 144, u.tl.y - 6, '200 м', { m: 1, s: 9.5, c: C.mu, h: 1 }) +
+      tagline(u.tl.x, u.tl.y, 238, 168, '#fff', '←286° · 340 м') + tagline(u.tl.x, u.tl.y, 700, 118, '#fff', '→64° · 365 м') + tagline(238, 168, 372, 150, C.am, '→97° · 196 м') + hostile(238, 168) + `<path d="M700 100v36M692 100h18l-5 7 5 7h-18" fill="${C.am}" stroke="#fff" stroke-width="1.2"/>`;
+    // --- навигация на цель
+    L.nav = `<line class="march" x1="${u.tl.x}" y1="${u.tl.y}" x2="238" y2="168" stroke="${C.am}" stroke-width="3"/>` + hostile(238, 168, 'ЦЕЛЬ') + `<circle class="pulse" cx="238" cy="168" r="14" fill="none" stroke="${C.am}" stroke-width="2"/>` +
+      `<rect x="66" y="300" width="232" height="108" rx="6" fill="${C.pn}" stroke="${C.am}"/>` + T(80, 322, 'НАВИГАЦИЯ НА ЦЕЛЬ', { m: 1, s: 10, c: C.am }) + T(80, 346, '340 м', { s: 22, w: 700 }) + T(170, 346, 'азимут 286°', { s: 12, c: C.mu }) + T(80, 368, 'Прибытие через ≈ 4 мин', { s: 12 }) + T(80, 388, 'обновляется каждые 60 с', { s: 10.5, c: C.mu }) +
+      `<rect x="330" y="372" width="330" height="36" rx="6" fill="${C.pn}"/>` + [[C.ok, '> 500 м'], [C.am, '200–500 м'], [C.ho, '≤ 200 м']].map((l, i) => `<rect x="${346 + i * 106}" y="387" width="22" height="5" rx="2" fill="${l[0]}"/>` + T(374 + i * 106, 394, l[1], { s: 10.5, m: 1 })).join('');
+    // --- геозона
+    L.fence = `<path d="M560 70l150-10 60 80-70 90-150-30z" fill="rgba(255,194,75,.13)" stroke="${C.am}" stroke-width="2.2" stroke-dasharray="9 5"/>` + T(650, 118, 'ЗОНА 1', { a: 'middle', m: 1, s: 12, c: C.am, h: 1, w: 600 }) +
+      `<g>${hostile(0, 0)}<animateMotion dur="7s" repeatCount="indefinite" path="M840 70 L690 150 L690 150 L840 70" keyTimes="0;.45;.8;1" calcMode="linear"/></g>` +
+      `<g class="blink"><rect x="296" y="40" width="320" height="38" rx="5" fill="${C.ho}"/>` + T(456, 64, '⚠  ТРЕВОГА · объект вошёл в Зону 1', { a: 'middle', s: 13, w: 700 }) + `</g>` +
+      panel(54, 250, 210, 170, 'Геозона') + T(68, 306, 'Срабатывание', { s: 11, c: C.mu }) + T(250, 306, 'вход и выход ›', { a: 'end', s: 11 }) + T(68, 332, 'Следить за', { s: 11, c: C.mu }) + T(250, 332, 'все объекты ›', { a: 'end', s: 11 }) + `<rect x="68" y="356" width="182" height="30" rx="4" fill="${C.blue}"/>` + T(159, 375, '▶  Наблюдение включено', { a: 'middle', s: 11, w: 600 });
+    // --- точка сбора
+    L.rally = Object.values(u).map(p => `<line class="march" x1="${p.x}" y1="${p.y}" x2="520" y2="112" stroke="${C.ok}" stroke-width="2" opacity=".85"/>`).join('') +
+      `<circle class="pulse" cx="520" cy="112" r="16" fill="none" stroke="${C.ok}" stroke-width="2"/><circle cx="520" cy="112" r="15" fill="#0d2a1c" stroke="${C.ok}" stroke-width="2"/><path d="M515 121v-18l12 5-12 5" fill="${C.ok}" stroke="${C.ok}" stroke-width="1.6" stroke-linejoin="round"/>` + T(520, 86, 'ТОЧКА СБОРА', { a: 'middle', m: 1, s: 11, c: C.ok, h: 1, w: 600 }) +
+      `<rect x="66" y="328" width="250" height="80" rx="6" fill="${C.pn}" stroke="${C.ok}"/>` + T(80, 350, 'Точка сбора назначена командиром', { s: 12, w: 600 }) + T(80, 370, 'Отправлено: 6 бойцов', { s: 11.5 }) + T(80, 390, 'Маршрут у каждого строится сам', { s: 10.5, c: C.mu });
+    // --- чат
+    const bub = (y, who, txt, me) => `<rect x="${me ? 150 : 68}" y="${y}" width="${Math.max(70, txt.length * 6.6 + 20)}" height="38" rx="8" fill="${me ? C.blue : '#17232a'}"/>` + T((me ? 150 : 68) + 10, y + 15, who, { s: 9.5, c: me ? '#cfe0ff' : C.fr, w: 600 }) + T((me ? 150 : 68) + 10, y + 30, txt, { s: 11.5 });
+    L.chat = panel(54, 0, 300, 420, 'Общий чат · 7 в сети') + bub(40, 'Тигр', 'Вышел на рубеж, наблюдаю') + `<rect x="68" y="86" width="118" height="78" rx="8" fill="#17232a"/><rect x="74" y="92" width="106" height="52" rx="4" fill="#22313a"/><path d="M80 138l22-26 16 16 12-10 22 20z" fill="#3b4b53"/><circle cx="160" cy="104" r="6" fill="#4b5c64"/>` + T(78, 158, 'Джерри · фото', { s: 9.5, c: C.fr, w: 600 }) +
+      bub(172, 'БАРС-1', 'Принял. Работаем', 1) + `<rect x="68" y="218" width="190" height="38" rx="8" fill="#17232a"/>` + T(78, 233, 'Руби · голосовое', { s: 9.5, c: C.fr, w: 600 }) + `<g fill="${C.fr}">${[5, 11, 7, 14, 9, 4, 12, 8, 13, 6, 10, 5, 9, 12, 7].map((h, i) => `<rect x="${96 + i * 7}" y="${246 - h / 2}" width="3" height="${h}" rx="1.5"/>`).join('')}</g><path d="M78 240l8 5-8 5z" fill="#fff"/>` +
+      T(68, 290, 'ГОТОВЫЕ ГОЛОСОВЫЕ СООБЩЕНИЯ', { m: 1, s: 9, c: C.mu }) + ['Контакт', 'Чисто', 'Отхожу', 'Нужна помощь', 'На месте'].map((t, i) => { const x = [68, 142, 200, 68, 190][i], y = i < 3 ? 300 : 332, w = t.length * 6.6 + 22; return `<rect x="${x}" y="${y}" width="${w}" height="24" rx="12" fill="#111a1f" stroke="#33454d"/>` + T(x + w / 2, y + 16, t, { a: 'middle', s: 11 }); }).join('') +
+      `<rect x="68" y="376" width="234" height="30" rx="6" fill="#111a1f" stroke="#27343b"/>` + T(80, 395, 'Сообщение…', { s: 11.5, c: C.mu }) + `<circle cx="326" cy="391" r="14" fill="${C.blue}"/><path d="M320 391l12-6-3 6 3 6z" fill="#fff"/>`;
+    // --- видео
+    L.video = `<path d="M318 108l-40 104h80z" fill="rgba(104,195,255,.16)" stroke="${C.fr}" stroke-dasharray="4 4"/><g transform="translate(318 100)" stroke="#fff" stroke-width="2" fill="${C.blue}"><path d="M-14-10l28 20M14-10l-28 20" fill="none"/><circle r="6"/><circle cx="-14" cy="-10" r="5"/><circle cx="14" cy="-10" r="5"/><circle cx="-14" cy="10" r="5"/><circle cx="14" cy="10" r="5"/></g>` + T(318, 86, 'БПЛА-1', { a: 'middle', m: 1, s: 10, h: 1 }) +
+      `<rect x="470" y="46" width="372" height="252" rx="6" fill="#05080a" stroke="#33454d"/><clipPath id="vclip"><rect x="476" y="76" width="360" height="190"/></clipPath><g clip-path="url(#vclip)"><rect x="476" y="76" width="360" height="190" fill="#1d2c22"/><path d="M476 190l80-50 70 30 90-60 120 70v86H476z" fill="#22362a"/><path d="M476 240c90-30 200 10 360-30v56H476z" fill="#2a4032"/><path d="M560 76l40 190M700 76l-30 190" stroke="#3a4f43" stroke-width="7"/>` +
+      [[610, 150], [640, 168], [596, 186], [690, 140], [742, 204]].map(p => `<rect x="${p[0]}" y="${p[1]}" width="26" height="16" fill="#3a4a40" stroke="#56695c"/>`).join('') + `<g><rect x="655" y="196" width="34" height="34" fill="none" stroke="${C.ho}" stroke-width="2"/><animateTransform attributeName="transform" type="translate" values="0 0;-40 -18;-12 10;0 0" dur="8s" repeatCount="indefinite"/></g><path d="M656 76v190M476 171h360" stroke="rgba(255,255,255,.18)"/></g>` +
+      T(484, 66, 'БПЛА-1 · прямой эфир', { s: 12, w: 600 }) + `<circle class="blink" cx="818" cy="62" r="5" fill="${C.ho}"/>` + T(808, 66, 'LIVE', { a: 'end', m: 1, s: 10, c: C.ho }) + T(484, 286, 'Н 120 м · 38 км/ч · 43.2411°, 76.9402°', { m: 1, s: 10, c: C.mu }) + `<rect x="762" y="272" width="72" height="20" rx="4" fill="${C.blue}"/>` + T(798, 286, 'В чат', { a: 'middle', s: 10.5, w: 600 }) +
+      `<rect x="470" y="310" width="372" height="96" rx="6" fill="${C.pn}"/>` + [['Видеозвонок', 'с любым бойцом группы'], ['Прибор наблюдения', 'картинка наблюдателя у командира'], ['Видео с БПЛА', 'цель видна всем, кому нужно']].map((r, i) => `<circle cx="488" cy="${330 + i * 28}" r="4" fill="${C.ok}"/>` + T(500, 334 + i * 28, r[0], { s: 11.5, w: 600 }) + T(640, 334 + i * 28, r[1], { s: 10.5, c: C.mu })).join('');
+    // --- вызов медика
+    L.medic = `<line class="march" x1="${u.tmy.x}" y1="${u.tmy.y}" x2="${u.tig.x}" y2="${u.tig.y}" stroke="${C.med}" stroke-width="3"/><circle class="pulse" cx="${u.tig.x}" cy="${u.tig.y}" r="16" fill="none" stroke="${C.ho}" stroke-width="3"/><circle class="pulse" cx="${u.tig.x}" cy="${u.tig.y}" r="16" fill="none" stroke="${C.ho}" stroke-width="3" style="animation-delay:.6s"/>` +
+      `<g transform="translate(${u.tig.x} ${u.tig.y})"><circle r="14" fill="${C.ho}" stroke="#fff" stroke-width="2"/><g transform="scale(1.2)">${glyph('med')}</g></g>` +
+      `<g class="blink"><rect x="286" y="40" width="340" height="38" rx="5" fill="${C.ho}"/>` + T(456, 64, '✚  ВЫЗОВ МЕДИКА · Тигр', { a: 'middle', s: 13, w: 700 }) + `</g>` +
+      `<rect x="66" y="318" width="270" height="90" rx="6" fill="${C.pn}" stroke="${C.med}"/>` + T(80, 340, 'Сигнал получили командир и медик', { s: 12, w: 600 }) + T(80, 362, 'Томми → Тигр · 292 м · ≈ 3 мин', { s: 12, m: 1 }) + T(80, 384, 'Вызов — кнопкой на радиостанции', { s: 10.5, c: C.mu }) + T(80, 398, 'или в приложении', { s: 10.5, c: C.mu });
+    // --- мои устройства
+    const rowD = (y, t, s2, col) => `<rect x="66" y="${y}" width="286" height="46" rx="6" fill="#111a1f" stroke="#27343b"/><circle cx="84" cy="${y + 23}" r="5" fill="${col}"/>` + T(98, y + 20, t, { s: 12, w: 600 }) + T(98, y + 36, s2, { s: 10.5, c: C.mu });
+    L.devices = panel(54, 0, 310, 420, 'Мои устройства') + rowD(40, 'Командная радиостанция', 'синхронизирована · канал CH3 · GNSS', C.ok) + rowD(92, 'Многодиапазонная радиостанция', 'в сети · голос и данные · WGN', C.ok) + rowD(144, 'Компьютер IEC', 'подключено устройств: 4 · Wi-Fi', C.ok) +
+      `<rect x="66" y="196" width="286" height="212" rx="6" fill="#111a1f" stroke="#27343b"/>` + T(80, 218, 'Питание · Аккумулятор 1', { s: 12, w: 600 }) + `<path d="M150 300a60 60 0 01120 0" fill="none" stroke="#27343b" stroke-width="9" stroke-linecap="round"/><path d="M150 300a60 60 0 01103-41" fill="none" stroke="${C.ok}" stroke-width="9" stroke-linecap="round"/>` + T(210, 292, '78%', { a: 'middle', s: 24, w: 700 }) + T(210, 312, '11,90 В · 0,85 А · 29,9 °C', { a: 'middle', m: 1, s: 10.5, c: C.mu }) +
+      [['Компьютер', '11,78 В'], ['Терминал', '4,96 В'], ['Команд. р/с', '11,52 В'], ['Многод. р/с', '11,82 В']].map((p, i) => `<rect x="${80 + (i % 2) * 134}" y="${330 + (i > 1) * 36}" width="124" height="30" rx="4" fill="#0c1317" stroke="#27343b"/>` + T(88 + (i % 2) * 134, 349 + (i > 1) * 36, p[0], { s: 10, c: C.fr }) + T(196 + (i % 2) * 134, 349 + (i > 1) * 36, p[1], { a: 'end', m: 1, s: 10 })).join('');
+    // --- топология
+    const E = [['tl', 'tom', C.ok], ['tom', 'tig', C.ok], ['tl', 'jer', C.ok], ['tl', 'tmy', C.ok], ['tmy', 'rub', C.ok], ['rub', 'jak', '#FACC15'], ['tl', 'rub', C.ok], ['jer', 'tig', '#FB923C'], ['tmy', 'jak', '#FACC15']];
+    L.topo = E.map((e, i) => { const a = u[e[0]], b = u[e[1]]; return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${e[2]}" stroke-width="2.4" opacity=".9"/><circle r="3.5" fill="#fff"><animateMotion dur="${1.6 + i * .23}s" repeatCount="indefinite" path="M${a.x} ${a.y}L${b.x} ${b.y}"/></circle>`; }).join('') +
+      `<rect x="66" y="330" width="250" height="78" rx="6" fill="${C.pn}"/>` + T(80, 350, 'УРОВЕНЬ СИГНАЛА', { m: 1, s: 9.5, c: C.mu }) + ['#F87171', '#FB923C', '#FACC15', '#86EFAC', C.ok].map((c, i) => `<rect x="${80 + i * 44}" y="360" width="40" height="7" rx="3" fill="${c}"/>`).join('') + T(80, 384, 'слабый', { s: 10, c: C.mu }) + T(300, 384, 'сильный', { a: 'end', s: 10, c: C.mu }) + T(80, 400, 'Сеть перестраивается сама', { s: 10.5 });
+    return L;
+  }
+  const FEAT = [
+    { g: 'Понимать обстановку', items: [
+      { id: 'bft', n: 'Свои силы на карте', ic: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/>', t: 'Каждый видит своих — без докладов голосом', d: 'Радиостанции сами передают позицию бойца. На карте у каждого — значок его роли и позывной.', p: ['Командир не тратит эфир на вопрос «где вы?»', 'Меньше риск огня по своим', 'Позиция видна даже у бойца без терминала — её передаёт радиостанция'] },
+      { id: 'topo', tab: 'layers', n: 'Топология радиосети', ic: '<circle cx="5" cy="6" r="2"/><circle cx="19" cy="7" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 6.5l10 .5M6 8l5 8M18 9l-5 7"/>', t: 'Связь видно так же, как людей', d: 'Линии между бойцами показывают качество радиоканала: от слабого до сильного.', p: ['Сразу видно, кто на грани потери связи', 'Сеть сама находит путь через соседей', 'Связист расставляет людей по карте, а не на слух'] },
+      { id: 'video', tab: 'contacts', n: 'Видео: БПЛА и приборы', ic: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>', t: 'Картинка с дрона — прямо у командира', d: 'В HyTIS приходят видео с беспилотника и прибора наблюдения, работают видеозвонки внутри группы.', p: ['Решение принимается по картинке, а не по пересказу', 'Кадр уходит в чат одним касанием', 'Видеоканал — по многодиапазонной радиостанции, до 4 Мбит/с'] },
+      { id: 'devices', tab: 'devices', n: 'Мои устройства и питание', ic: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 7h4M10 11h4"/>', t: 'Весь комплект под контролем с одного экрана', d: 'Состояние радиостанций, компьютера и аккумулятора: сеть, канал, заряд, напряжение и температура.', p: ['Севший аккумулятор не станет сюрпризом', 'Канал и режим радиостанции меняются с экрана', 'Видно, сколько потребляет каждое устройство'] },
+    ] },
+    { g: 'Планировать задачу', items: [
+      { id: 'draw', n: 'Тактическая графика', ic: '<path d="M4 20l4-1 11-11-3-3L5 16z"/>', t: 'Замысел рисуется прямо на карте', d: 'Круг, эллипс, прямоугольник, произвольная фигура, линия от руки. Размеры и площадь считаются автоматически.', p: ['Условные знаки по стандарту НАТО и свои наборы значков', 'Схему видит вся группа — без бумажной карты', 'Из фигуры одним действием делается геозона'] },
+      { id: 'marker', n: 'Метки и доклады', ic: '<path d="M12 21s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>', t: 'Доклад о цели — за несколько секунд', d: 'Боец ставит метку: свой, противник, нейтральный или неизвестный. К ней можно приложить фото и отправить выбранным контактам.', p: ['Координаты снимаются с карты — без ошибок на слух', 'Метку можно перенести, если цель сместилась', 'Все метки собраны в менеджере слоёв'] },
+      { id: 'rally', n: 'Точка сбора', ic: '<path d="M6 21V4l12 4-12 4"/>', t: 'Одна точка — и вся группа знает, куда идти', d: 'Командир назначает точку сбора и рассылает её бойцам. У каждого автоматически включается навигация.', p: ['Не нужно диктовать координаты по рации', 'Маршрут обновляется каждые 60 секунд', 'Точка одна — путаницы нет'] },
+      { id: 'fence', tab: 'bell', n: 'Геозона с тревогой', ic: '<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M12 9v4M12 16v.5"/>', t: 'Карта сама предупредит о нарушении рубежа', d: 'Зона задаётся на карте. Приложение следит за входом и выходом — своих, противника или всех сразу.', p: ['Тревога приходит сразу, без постоянного наблюдения', 'Удобно для охраны периметра и контроля рубежей', 'Срабатывание настраивается: вход, выход или оба'] },
+    ] },
+    { g: 'Действовать вместе', items: [
+      { id: 'rb', n: 'Дальность и азимут', ic: '<circle cx="12" cy="12" r="9"/><path d="M12 12l5-6"/>', t: 'Расстояние и направление — одним движением', d: 'Линия между любыми точками показывает дальность и азимут. Есть круги дальности и замер по нескольким точкам.', p: ['Целеуказание без расчётов в уме', 'Конец линии можно тянуть пальцем', 'Работает между бойцами, метками и любыми точками'] },
+      { id: 'nav', n: 'Навигация на цель', ic: '<path d="M12 3l7 18-7-4-7 4z"/>', t: 'Линия к цели меняет цвет по мере сближения', d: 'Боец выбирает цель — приложение показывает дальность, азимут и расчётное время прибытия.', p: ['Зелёная линия — дальше 500 м, жёлтая — 200–500 м, красная — ближе 200 м', 'Время прибытия обновляется каждые 60 секунд', 'Работает и в пешем порядке, и на технике'] },
+      { id: 'chat', tab: 'contacts', n: 'Чат и голосовые сообщения', ic: '<path d="M4 5h16v11H9l-5 4z"/>', t: 'Связь, когда говорить нельзя', d: 'Текст, фото, файлы и снимки с камеры. Готовые голосовые сообщения отправляются одним касанием.', p: ['Короткий доклад без единого слова в эфире', 'Задача передаётся даже при узком канале', 'Набор готовых сообщений настраивается под подразделение'] },
+      { id: 'medic', tab: 'bell', n: 'Вызов медика', ic: '<path d="M9 4h6v5h5v6h-5v5H9v-5H4V9h5z"/>', t: 'Одна кнопка — и помощь уже идёт', d: 'Раненый нажимает кнопку на радиостанции или в приложении. Сигнал с точкой на карте сразу получают командир и медик.', p: ['Не нужно объяснять, где ты находишься', 'Медик получает маршрут и время прибытия', 'Ложный вызов отменяется долгим нажатием'] },
+    ] },
+  ];
+  const flat = FEAT.flatMap(g => g.items), fList = $('#fList'), hy = $('#hy'), fInfo = $('#fInfo');
+  const LY = layers();
+  const TOP = ['marker', 'chat', 'devices', 'video'];
+  hy.innerHTML = mapBg() + Object.keys(LY).filter(k => !TOP.includes(k)).map(k => `<g class="f f-${k}">${LY[k]}</g>`).join('') + `<g id="hyUnits">${Object.values(U).map(p => unit(p)).join('')}</g>` + chrome() + TOP.map(k => `<g class="f f-${k}">${LY[k]}</g>`).join('');
+  fList.innerHTML = FEAT.map(g => `<div class="f-grp"><h4>${g.g}</h4><div>${g.items.map(f => `<button class="f-btn" data-f="${f.id}"><svg viewBox="0 0 24 24">${f.ic}</svg>${f.n}</button>`).join('')}</div></div>`).join('');
+  let fi = 0, auto = !RM, timer = null;
+  function setF(id, user) {
+    const f = flat.find(x => x.id === id); fi = flat.indexOf(f); hy.setAttribute('data-f', id); hy.setAttribute('data-tab', f.tab || 'map');
+    if (user) { auto = false; clearInterval(timer); }
+    $$('.f-btn').forEach(b => { b.classList.remove('on', 'auto'); if (b.dataset.f === id) { void b.offsetWidth; b.classList.add('on'); if (auto) b.classList.add('auto'); } });
+    fInfo.innerHTML = `<h3 class="fadein">${f.t}</h3><p class="fadein">${f.d}</p><ul class="plus fadein">${f.p.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  }
+  fList.addEventListener('click', e => { const b = e.target.closest('.f-btn'); if (b) setF(b.dataset.f, true); });
+  setF('bft');
+  let seen = false;
+  new IntersectionObserver(es => { seen = es[0].isIntersecting; }, { threshold: .3 }).observe(hy);
+  if (auto) timer = setInterval(() => { if (seen && auto) setF(flat[(fi + 1) % flat.length].id); }, 7000);
+
+  /* ---------- преимущества ---------- */
+  const PL = [
+    ['<path d="M5 12a7 7 0 0114 0M2 12a10 10 0 0120 0M12 12v8M8 20h8"/><circle cx="12" cy="12" r="2"/>', 'Связь без инфраструктуры', 'Радиостанции сами объединяются в сеть. Не нужны вышки, базовые станции и предварительная развёртка.'],
+    ['<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/>', 'Защищённый эфир', 'Шифрование AES-256, скачки по частоте и автоматический поиск свободного канала.'],
+    ['<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>', 'Единая картина обстановки', 'Свои силы, метки, зоны и маршруты — на одной карте у каждого бойца и командира.'],
+    ['<circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>', 'Один центр — шесть портов', 'Компьютер IEC подключает радиостанции, гарнитуру, терминал и приборы. Устройства определяются сами.'],
+    ['<rect x="3" y="8" width="16" height="9" rx="2"/><path d="M21 11v3M7 11v3M11 11v3"/>', 'Одно питание на всё', 'Комплект работает от общего аккумулятора. Заряд и расход каждого устройства видны в приложении.'],
+    ['<path d="M4 12h4l2-6 4 12 2-6h4"/>', 'Голос, данные и координаты сразу', 'Радиостанция передаёт всё одновременно: разговор не мешает обновлению карты.'],
+    ['<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12h3M14 12h3"/>', 'Связь через соседей', 'Голос ретранслируется по цепочке до трёх переходов — группа остаётся на связи за препятствием.'],
+    ['<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>', 'Видео в реальном времени', 'Картинка с беспилотника и приборов наблюдения приходит на терминал командира — до 4 Мбит/с.'],
+    ['<path d="M9 4h6v5h5v6h-5v5H9v-5H4V9h5z"/>', 'Вызов медика одной кнопкой', 'Сигнал с точкой на карте сразу получают командир и медик. Маршрут строится автоматически.'],
+    ['<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-5 12-5 12 0M14 19c0-3 8-3 8 0"/>', 'Комплект под роль', 'Командир, связист, медик, наблюдатель и солдат получают свой набор на общей основе.'],
+    ['<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/>', 'Данные не достанутся противнику', 'Данные на терминале можно уничтожить дистанционно, а запуск приложения защищён лицензией на каждое устройство.'],
+    ['<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>', 'Привычный смартфон', 'Командный терминал — Samsung Galaxy S23 в защитном чехле. Бойцу не нужно учиться с нуля.'],
+  ];
+  $('#pGrid').innerHTML = PL.map(p => `<div class="pcard reveal"><svg viewBox="0 0 24 24">${p[0]}</svg><h3>${p[1]}</h3><p>${p[2]}</p></div>`).join('');
+  watch();
+})();
+</script>
+
+<!-- ===================== 3D: комплект и устройства ===================== -->
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const $ = s => document.querySelector(s);
+const DEV = [
+  { id: 'all', name: 'Весь комплект', img: 'img/hero_kit.png', cat: 'Комплект в сборе',
+    lead: 'Боец в полевой форме с полным комплектом. Все устройства закреплены на разгрузочном жилете и соединены через компьютер IEC. Нажмите на метку на бойце или выберите устройство в ряду выше.',
+    plus: ['Одна система вместо набора отдельных приборов', 'Руки свободны: всё закреплено на жилете и не мешает работать', 'Одно питание и одна гарнитура на все устройства', 'Состав меняется под роль бойца'],
+    spec: [['Основа', 'гарнитура, командная радиостанция, компьютер IEC, аккумулятор'], ['Расширение', 'командный терминал, многодиапазонная радиостанция, второй аккумулятор'], ['Приложение', 'HyTIS']] },
+  { id: 'headset', name: 'Тактическая гарнитура', short: 'Гарнитура', img: 'img/dev_headset.png', cat: 'Tactical Headphone',
+    lead: 'Наушники с микрофоном на гибкой штанге. Подключается к компьютеру IEC одним кабелем с тангентой на груди.',
+    plus: ['Одна гарнитура на все радиостанции комплекта', 'Боец слышит группу, не отрывая рук от оружия', 'Тангента PTT вынесена на грудь — под рукой', 'Носится вместе со шлемом'],
+    spec: [['Подключение', 'порт PAN компьютера IEC'], ['Управление', 'выносная тангента PTT'], ['Микрофон', 'на гибкой штанге']] },
+  { id: 'teamradio', name: 'Командная радиостанция', short: 'Командная радиостанция', img: 'img/dev_teamradio.png', cat: 'Team Radio', focus: true,
+    lead: 'Компактная радиостанция на плече для связи внутри группы. Сама строит сеть с соседними станциями — без базовых станций и ретрансляторов.',
+    plus: ['Голос, данные и координаты передаются одновременно', 'Полнодуплексная конференция: можно говорить и слушать сразу', 'Голос ретранслируется через соседей — до 3 переходов', 'Кнопка «Вызов медика» прямо на корпусе', 'Две программируемые тангенты PTT A и PTT B'],
+    spec: [['Диапазон', '350–450 МГц'], ['Сеть', 'ad-hoc, скачки по частоте (ППРЧ), многоканальные вызовы'], ['Вызовы', 'групповой, общий, с приоритетом доступа'], ['Защита', 'шифрование AES-256'], ['Навигация', 'встроенный приёмник GNSS, доклад позиции'], ['Индикатор', 'зелёный — синхронизация, оранжевый — ведущий, красный — конференция']] },
+  { id: 'mbr', name: 'Многодиапазонная радиостанция', short: 'Многодиапазонная радиостанция', img: 'img/dev_mbr.png', cat: 'Multi-Band Radio', yaw: Math.PI, focus: true,
+    lead: 'Основная радиостанция для связи с другими подразделениями и передачи данных. Носится в подсумке на спине, антенна складывается.',
+    plus: ['Один прибор перекрывает диапазон 30–512 МГц', 'Передаёт видео и большие объёмы данных — до 4 Мбит/с', 'Сеть без центрального узла: выход одной станции не рвёт связь', 'Сама ищет свободный канал и уходит от помех скачками частоты', 'Скрытные режимы: только приём, пониженная заметность'],
+    spec: [['Диапазон', '30–512 МГц'], ['Сигналы', 'CNR, WGN, PRN, VRN'], ['Данные', 'до 48 кбит/с (PRN), до 4 Мбит/с (WGN)'], ['Защита', 'AES-256, пользовательское шифрование, ППРЧ'], ['Голос', 'индивидуальный и широковещательный вызов, две тангенты, VOX, SMS, шумоподавление'], ['Надёжность', 'защита от перегрева, обрыва и замыкания антенны'], ['Навигация', 'GPS: время и доклад позиции']] },
+  { id: 'iec', name: 'Компьютер IEC', short: 'Компьютер IEC', img: 'img/dev_iec.png', cat: 'IEC / Portable Computer',
+    lead: 'Центр комплекта. Соединяет радиостанции, гарнитуру, терминал и приборы, раздаёт питание от аккумулятора. Крепится прямо на стропы MOLLE.',
+    plus: ['Шесть портов: к одному компьютеру подключается весь комплект', 'Сам определяет, что подключено, — настраивать вручную не нужно', 'Объединяет голос разных радиостанций в одной гарнитуре', 'У связиста — ретрансляция голоса между сетями', 'Одна кнопка: включает и выключает весь комплект'],
+    spec: [['Порты', 'HOST — терминал, BATT — аккумулятор, PAN1–PAN4 — любые устройства'], ['Питание', 'вкл. — удерживать 3 с, выкл. — 6 с'], ['Индикатор', 'красный — загрузка, зелёный — радиосеть работает'], ['Связь', 'Wi-Fi для подключения устройств'], ['Крепление', 'съёмное, на MOLLE']] },
+  { id: 'battery', name: 'Аккумулятор', short: 'Аккумулятор', img: 'img/dev_battery.png', cat: 'Li-Battery',
+    lead: 'Литиевый аккумулятор питает весь комплект через компьютер IEC. Носится в подсумке за компьютером.',
+    plus: ['Одна батарея вместо отдельной в каждом приборе — меньше вес', 'Заряд, напряжение, ток и температура видны в HyTIS', 'Расход видно по каждому порту — понятно, что сколько потребляет', 'В расширенном комплекте — два аккумулятора'],
+    spec: [['Тип', 'литиевый'], ['Подключение', 'порт BATT компьютера IEC'], ['Контроль', 'в HyTIS → «Мои устройства» → «Питание»']] },
+  { id: 'terminal', name: 'Командный терминал', short: 'Командный терминал', img: 'img/dev_terminal.png', cat: 'Tactical Command Terminal',
+    lead: 'Смартфон Samsung Galaxy S23 в защитном чехле на откидном нагрудном креплении. На нём работает HyTIS: карта, чат, видео и управление устройствами.',
+    plus: ['Откинул — экран перед глазами, сложил — экран защищён и не светит', 'Обе руки свободны', 'HyTIS установлен с завода и защищён лицензией на каждое устройство', 'Экран переворачивается под любой способ крепления', 'Есть вариант крепления на предплечье'],
+    spec: [['Устройство', 'Samsung Galaxy S23'], ['Крепление', 'нагрудное откидное или наручное'], ['Подключение', 'порт HOST компьютера IEC'], ['ПО', 'HyTIS, 20 базовых плагинов']] },
+  { id: 'vest', name: 'Жилет с подсумками', short: 'Жилет с подсумками', img: 'img/dev_vest.png', cat: 'Носимая платформа',
+    lead: 'Разгрузочный жилет со стропами MOLLE. У каждого устройства своё место: терминал на груди, радиостанция на плече, компьютер с аккумулятором на поясе, вторая радиостанция на спине.',
+    plus: ['Вес распределён равномерно между грудью и спиной', 'Кабели уложены вдоль строп и не цепляются', 'Быстросъёмные пряжки: жилет снимается за секунды', 'Свободные стропы — под магазины и аптечку'],
+    spec: [['Крепление', 'MOLLE, лазерная резка'], ['Подсумки', 'компьютер с аккумулятором, многодиапазонная радиостанция']] },
+  { id: 'robot', name: 'Робот-разведчик с лидаром', short: 'Робот с лидаром', img: 'img/dev_robot.png', cat: 'ZC-380 PRO + лидар LD-01', yaw: -.5,
+    lead: 'Малогабаритный наземный робот, который заезжает в опасное или тесное помещение раньше людей. Передаёт видео с двух камер, а лидар на крыше строит объёмную карту помещения. Как это работает — в разделе «Робот» ниже.',
+    plus: ['Первым входит туда, куда опасно идти человеку', 'Лидар строит 3D-карту помещения прямо на ходу', 'Две камеры 1080p с ночным режимом — спереди и сзади', 'Весит 5 кг — переносит и разворачивает один человек', 'Сменные модули: лидар, манипулятор, поворотная камера'],
+    spec: [['Шасси', '337 × 300 × 155 мм, 5 кг, защита IP67'], ['Ход', 'до 7,2 км/ч, подъём до 35°, разворот на месте'], ['Связь', '5,8 ГГц, около 1 км в прямой видимости'], ['Работа', 'около 3 часов без модулей, зарядка около 1,5 часа'], ['Лидар', '0,5–40 м, 10 Гц, разрешение менее 0,15°, 960 г'], ['Запись', '256 ГБ — до 40 часов, выгрузка LAS и XYZ']] },
+];
+const byId = Object.fromEntries(DEV.map(d => [d.id, d]));
+// метки на бойце (координаты модели, метры)
+const HS = { headset: [.115, .57, 0], teamradio: [.114, .312, .185], terminal: [-.005, .2, .215], iec: [.092, .05, .238], battery: [.15, .14, .15], mbr: [.1, .15, -.215], vest: [-.095, .405, .07] };
+
+const row = $('#devRow'), info = $('#kitInfo'), stage = $('#kitStage'), cv = $('#kitCv'), ov = $('#kitOv'), tools = $('#kitTools'), load = $('#kitLoad');
+row.innerHTML = DEV.map((d, i) => `<button class="dev-card" role="tab" data-id="${d.id}"><i>${String(i).padStart(2, '0')}</i><img src="${d.img}" alt="" loading="lazy"><span>${d.short || d.name}</span></button>`).join('');
+let cur = 'all', api = null;
+function showInfo(d) {
+  info.innerHTML = `<div class="fadein"><div class="eyebrow">${d.cat}</div><h3 style="margin:8px 0 10px">${d.name}</h3><p>${d.lead}</p>
+    <div class="sub" style="margin:16px 0 8px">Преимущества</div><ul class="plus">${d.plus.map(p => `<li>${p}</li>`).join('')}</ul>
+    <div class="sub" style="margin:16px 0 8px">Характеристики</div><dl class="spec">${d.spec.map(s => `<dt>${s[0]}</dt><dd>${s[1]}</dd>`).join('')}</dl></div>`;
+}
+function select(id, scroll) {
+  cur = id; const d = byId[id];
+  row.querySelectorAll('.dev-card').forEach(b => { const on = b.dataset.id === id; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); if (on && scroll) b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); });
+  showInfo(d); if (api) api.show(d);
+}
+row.addEventListener('click', e => { const b = e.target.closest('.dev-card'); if (b) select(b.dataset.id); });
+select('all');
+
+try { init(); } catch (e) { console.error(e); load.innerHTML = '3D не загрузилось.<br>Нужен интернет (библиотека Three.js) и браузер с WebGL.<br>Описания устройств доступны справа.'; }
+
+function init() {
+  const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  const scene = new THREE.Scene();
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+  const key = new THREE.DirectionalLight(0xfff1dd, 1.6); key.position.set(2, 3, 4); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x68C3FF, 1.4); rim.position.set(-3, 2, -4); scene.add(rim);
+  const cam = new THREE.PerspectiveCamera(30, 1, .01, 50); cam.position.set(1.2, .6, 2.6);
+  const ctl = new OrbitControls(cam, cv); ctl.enableZoom = false; ctl.enablePan = false; ctl.enableDamping = true; ctl.dampingFactor = .08;
+  ctl.minPolarAngle = .25; ctl.maxPolarAngle = Math.PI - .5; ctl.autoRotate = !RM; ctl.autoRotateSpeed = .9;
+  const holder = new THREE.Group(); scene.add(holder);
+  let kit = null, solo = null, tween = null, visible = true, hsEls = {};
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage); resize();
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; }, { threshold: .02 }).observe(stage);
+
+  function boxOf(obj, bodyOnly) {
+    const b = new THREE.Box3(); obj.updateWorldMatrix(true, true);
+    obj.traverse(o => { if (!o.isMesh) return; if (bodyOnly && /_Ant_|Whip|RF_Antenna/.test(o.name + ' ' + (o.parent ? o.parent.name : ''))) return; o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); });
+    return b;
+  }
+  function fit(obj, th, ph, bodyOnly, pad) {
+    const b = boxOf(obj, bodyOnly), c = b.getCenter(new THREE.Vector3()), r = b.getSize(new THREE.Vector3()).length() / 2;
+    const dist = r / Math.sin(THREE.MathUtils.degToRad(cam.fov / 2)) * (pad || 1.08) * Math.max(1, .82 / cam.aspect);
+    const to = new THREE.Vector3(Math.sin(th) * Math.cos(ph), Math.sin(ph), Math.cos(th) * Math.cos(ph)).multiplyScalar(dist).add(c);
+    tween = { t: 0, p0: cam.position.clone(), p1: to, c0: ctl.target.clone(), c1: c };
+  }
+  function dolly(k) { const off = cam.position.clone().sub(ctl.target); const l = THREE.MathUtils.clamp(off.length() * k, .12, 9); cam.position.copy(ctl.target).add(off.setLength(l)); }
+  cv.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); dolly(e.deltaY > 0 ? 1.12 : .89); }, { passive: false });
+  cv.addEventListener('pointerdown', () => { ctl.autoRotate = false; tween = null; syncTools(); });
+
+  function syncTools() {
+    tools.innerHTML = `<button data-a="out" aria-label="Отдалить">−</button><button data-a="in" aria-label="Приблизить">+</button><button data-a="reset">Сброс вида</button><button data-a="spin" class="${ctl.autoRotate ? 'on' : ''}">Вращение</button>` +
+      (cur === 'terminal' ? `<button data-a="fold">${folded ? 'Откинуть терминал' : 'Сложить терминал'}</button>` : '') + (cur !== 'all' ? `<button data-a="all">← Весь комплект</button>` : `<button data-a="full" class="${full ? 'on' : ''}">В полный рост</button>`);
+  }
+  let folded = false, foldK = 0, full = false;
+  tools.addEventListener('click', e => {
+    const a = e.target.dataset.a; if (!a) return;
+    if (a === 'in') dolly(.8); if (a === 'out') dolly(1.25); if (a === 'spin') ctl.autoRotate = !ctl.autoRotate;
+    if (a === 'full') { full = !full; api.show(byId[cur]); } if (a === 'reset') api.show(byId[cur]); if (a === 'fold') folded = !folded; if (a === 'all') select('all', true);
+    syncTools();
+  });
+
+  api = {
+    show(d) {
+      if (!kit) return;
+      holder.clear(); solo = null; folded = false; foldK = 0;
+      if (d.id === 'all') { kit.visible = true; const c = new THREE.Vector3(0, full ? -.2 : .25, 0), dist = (full ? 1.02 : .6) / Math.sin(THREE.MathUtils.degToRad(cam.fov / 2)) * Math.max(1, (full ? .5 : .82) / cam.aspect); tween = { t: 0, p0: cam.position.clone(), p1: new THREE.Vector3(Math.sin(.5), .12, Math.cos(.5)).multiplyScalar(dist).add(c), c0: ctl.target.clone(), c1: c }; }
+      else {
+        kit.visible = false; const src = kit.getObjectByName('DEV_' + d.id); if (!src) return;
+        solo = src.clone(true); solo.visible = true; solo.position.set(0, 0, 0); solo.quaternion.identity(); solo.rotation.y = d.yaw || 0; holder.add(solo);
+        fit(holder, .6, .22, !!d.focus, d.focus ? 1.9 : 1.15);
+      }
+      ov.style.display = d.id === 'all' ? '' : 'none'; if (!RM) ctl.autoRotate = true; syncTools();
+    }
+  };
+
+  const bin = atob(window.KIT_GLB_B64 || ''), buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  new GLTFLoader().parse(buf.buffer, '', g => {
+    kit = g.scene; scene.add(kit); load.style.display = 'none';
+    const rb = kit.getObjectByName('DEV_robot'); if (rb) rb.visible = false;
+    window.KIT_SCENE = kit; window.dispatchEvent(new Event('kit-ready'));
+    kit.traverse(o => { if (o.isMesh && o.material && o.material.map) o.material.map.anisotropy = 8; });
+    Object.entries(HS).forEach(([id, p]) => {
+      const b = document.createElement('button'); b.className = 'hs'; b.textContent = byId[id].short || byId[id].name; b.onclick = () => { select(id, true); };
+      ov.appendChild(b); hsEls[id] = { el: b, p: new THREE.Vector3(...p) };
+    });
+    api.show(byId[cur]);
+  }, err => { console.error(err); load.textContent = 'Не удалось прочитать 3D-модель.'; });
+
+  const v = new THREE.Vector3(), c0 = new THREE.Vector3(), qOpen = new THREE.Quaternion(), qShut = new THREE.Quaternion(); let hinge0 = null;
+  let last = performance.now();
+  (function loop(now) {
+    requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (!visible || !kit) return;
+    if (tween) { tween.t = Math.min(1, tween.t + dt / .7); const k = tween.t * tween.t * (3 - 2 * tween.t); cam.position.lerpVectors(tween.p0, tween.p1, k); ctl.target.lerpVectors(tween.c0, tween.c1, k); if (tween.t >= 1) tween = null; }
+    if (solo && cur === 'terminal') {
+      const h = solo.getObjectByName('Terminal_Hinge_PIVOT');
+      if (h) { if (hinge0 !== h) { hinge0 = h; qOpen.copy(h.quaternion); } foldK += ((folded ? 1 : 0) - foldK) * Math.min(1, dt * 6); h.quaternion.slerpQuaternions(qOpen, qShut, foldK); }
+    }
+    ctl.update(); renderer.render(scene, cam);
+    if (cur === 'all') {
+      const w = stage.clientWidth, h = stage.clientHeight, cx = cam.position.x - ctl.target.x, cz = cam.position.z - ctl.target.z; c0.set(0, .25, 0).project(cam);
+      for (const id in hsEls) { const o = hsEls[id]; v.copy(o.p).project(cam); o.el.style.left = (v.x * .5 + .5) * w + 'px'; o.el.style.top = (-v.y * .5 + .5) * h + 'px'; o.el.classList.toggle('back', o.p.x * cx * .35 + o.p.z * cz < -.02); o.el.classList.toggle('l', v.x < c0.x); }
+    }
+  })(last);
+}
+</script>
+
+<!-- ===================== 3D: робот с лидаром строит карту ===================== -->
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $ = s => document.querySelector(s);
+const stage = $('#ldStage'), cv = $('#ldCv'), hud = $('#ldHud'), tools = $('#ldTools'), load = $('#ldLoad');
+try { init(); } catch (e) { console.error(e); load.innerHTML = 'Демонстрация не загрузилась.<br>Нужен интернет (библиотека Three.js) и браузер с WebGL.'; }
+
+function init() {
+  const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* ---------- условное здание: стены и мебель как отрезки с высотой (метры) ---------- */
+  const SEG = [], H = 2.7;
+  const wall = (x1, y1, x2, y2, h = H) => SEG.push({ x1, y1, x2, y2, h });
+  const gaps = (fixed, a, b, holes, vert) => { let p = a; holes.concat([[b, b]]).forEach(([g0, g1]) => { if (g0 > p) vert ? wall(fixed, p, fixed, g0) : wall(p, fixed, g0, fixed); p = g1; }); };
+  const box = (x, y, w, d, h) => { wall(x, y, x + w, y, h); wall(x + w, y, x + w, y + d, h); wall(x + w, y + d, x, y + d, h); wall(x, y + d, x, y, h); };
+  gaps(-5.5, -9, 9, [[-0.9, 0.3]]); gaps(5.5, -9, 9, []); gaps(-9, -5.5, 5.5, [], 1); gaps(9, -5.5, 5.5, [], 1);       // наружные стены, вход с юга
+  gaps(-1, -9, 9, [[-6.6, -5.6], [-0.9, 0.3], [5.2, 6.2]]); gaps(1, -9, 9, [[-7, -6], [-1.5, -0.5], [5, 6]]);            // коридор
+  gaps(-3, -5.5, -1, [], 1); gaps(3, -5.5, -1, [], 1); gaps(-4, 1, 5.5, [], 1); gaps(2, 1, 5.5, [], 1);                    // перегородки
+  [[-8.4, -5, 1.6, .8, .8], [-5, -4.6, .7, 2.2, 1.9], [-2.4, -5.1, 1.4, .7, .9], [1.6, -3.6, .9, 1.6, .8], [6.6, -5, 1.8, .9, .8], [4, -2.6, .6, 1.2, 2.0],
+   [-8.5, 3.6, 2.2, 1.2, .8], [-5.2, 1.6, .8, .8, 1.2], [-3.2, 4.2, 2.4, .9, .8], [0.6, 1.6, .9, 2.0, 2.0], [3.2, 4.3, 2.6, .8, .9], [7.4, 1.8, 1.1, 2.4, .8], [-2.2, 2.4, .7, .7, 1.1]].forEach(b => box(...b));
+  const PATH = [[-.3, -8.5], [-.3, -3.2], [-.3, 0], [-6.1, 0], [-6.1, -3.3], [-6.1, 0], [-6.5, 0], [-6.5, 3.2], [-6.5, 0], [-1, 0], [-1, 3.4], [-1, 0], [5.5, 0], [5.5, 3.3], [5.5, 0], [5.7, 0], [5.7, -3.3], [5.7, 0], [-.3, 0], [-.3, -8.5]];
+  const LEN = [0]; for (let i = 1; i < PATH.length; i++) LEN.push(LEN[i - 1] + Math.hypot(PATH[i][0] - PATH[i - 1][0], PATH[i][1] - PATH[i - 1][1]));
+  const TOTAL = LEN[LEN.length - 1], SPEED = 2.1, RATE = 5200, CAP = 190000;
+  function at(d) { d = Math.max(0, Math.min(TOTAL, d)); let i = 1; while (i < LEN.length - 1 && LEN[i] < d) i++; const k = (d - LEN[i - 1]) / ((LEN[i] - LEN[i - 1]) || 1), a = PATH[i - 1], b = PATH[i]; return { x: a[0] + (b[0] - a[0]) * k, y: a[1] + (b[1] - a[1]) * k, hx: b[0] - a[0], hy: b[1] - a[1] }; }
+  function cast(ox, oy, dx, dy, zr) {                                 // ближайшая стена, которая выше луча
+    let best = 41;
+    for (let i = 0; i < SEG.length; i++) { const s = SEG[i]; if (s.h < zr) continue; const ex = s.x2 - s.x1, ey = s.y2 - s.y1, den = dx * ey - dy * ex; if (Math.abs(den) < 1e-9) continue;
+      const t = ((s.x1 - ox) * ey - (s.y1 - oy) * ex) / den, u = ((s.x1 - ox) * dy - (s.y1 - oy) * dx) / den; if (t > .5 && t < best && u >= 0 && u <= 1) best = t; }
+    return best;
+  }
+
+  /* ---------- сцена ---------- */
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+  const scene = new THREE.Scene(); scene.add(new THREE.HemisphereLight(0xdfeeff, 0x10202a, 2.2)); const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(4, 10, 6); scene.add(sun);
+  const cam = new THREE.PerspectiveCamera(34, 1, .1, 200); cam.position.set(-15, 20, 25);
+  const ctl = new OrbitControls(cam, cv); ctl.enableZoom = false; ctl.enablePan = false; ctl.enableDamping = true; ctl.target.set(0, .6, 0); ctl.maxPolarAngle = 1.45; ctl.autoRotate = !RM; ctl.autoRotateSpeed = .5;
+  cv.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); const off = cam.position.clone().sub(ctl.target); cam.position.copy(ctl.target).add(off.setLength(THREE.MathUtils.clamp(off.length() * (e.deltaY > 0 ? 1.1 : .9), 8, 60))); }, { passive: false });
+  const grid = new THREE.GridHelper(40, 40, 0x1d3340, 0x12222b); grid.material.transparent = true; grid.material.opacity = .7; scene.add(grid);
+  const pos = new Float32Array(CAP * 3), col = new Float32Array(CAP * 3), geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setDrawRange(0, 0);
+  const cloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: .075, vertexColors: true, sizeAttenuation: true, transparent: true, opacity: .95 })); cloud.frustumCulled = false; scene.add(cloud);
+  const RAMP = [[.16, .29, 1], [.1, .78, 1], [.21, .88, .54], [1, .9, .36]];
+  const ramp = (t, o, i) => { t = Math.max(0, Math.min(.999, t)) * 3; const k = Math.floor(t), f = t - k, a = RAMP[k], b = RAMP[k + 1]; for (let c = 0; c < 3; c++) o[i + c] = a[c] + (b[c] - a[c]) * f; };
+  // робот: до загрузки модели — простая заглушка
+  const bot = new THREE.Group(); scene.add(bot);
+  const stub = new THREE.Mesh(new THREE.BoxGeometry(.9, .35, 1), new THREE.MeshStandardMaterial({ color: 0x1b2024, roughness: .5 })); stub.position.y = .25; bot.add(stub);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.95, 1.05, 48), new THREE.MeshBasicMaterial({ color: 0x68C3FF, transparent: true, opacity: .9, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = .03; bot.add(ring);
+  const wave = new THREE.Mesh(new THREE.RingGeometry(.97, 1, 64), new THREE.MeshBasicMaterial({ color: 0x68C3FF, transparent: true, opacity: .5, side: THREE.DoubleSide })); wave.rotation.x = -Math.PI / 2; wave.position.y = .04; scene.add(wave);
+  const beam = new THREE.Mesh(new THREE.CircleGeometry(7, 24, 0, .5), new THREE.MeshBasicMaterial({ color: 0x35e08a, transparent: true, opacity: .13, side: THREE.DoubleSide, depthWrite: false })); beam.rotation.x = -Math.PI / 2; beam.position.y = .5; scene.add(beam);
+  const trailGeo = new THREE.BufferGeometry(), trailPos = new Float32Array(3000); trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+  const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0xFFC24B, transparent: true, opacity: .8 })); trail.frustumCulled = false; scene.add(trail);
+  function useModel() { const src = window.KIT_SCENE && window.KIT_SCENE.getObjectByName('DEV_robot'); if (!src) return; const m = src.clone(true); m.visible = true; m.position.set(0, 0, 0); m.quaternion.identity(); m.scale.setScalar(3); bot.remove(stub); bot.add(m); }
+  if (window.KIT_SCENE) useModel(); else addEventListener('kit-ready', useModel, { once: true });
+
+  /* ---------- состояние ---------- */
+  let dist = 0, n = 0, paused = false, done = 0, top = false, visible = false, tN = 0, tAcc = 0, last = performance.now();
+  function reset() { dist = 0; n = 0; done = 0; tN = 0; geo.setDrawRange(0, 0); trailGeo.setDrawRange(0, 0); }
+  function syncTools() { tools.innerHTML = `<button data-a="pause">${paused ? '▶ Продолжить' : '❚❚ Пауза'}</button><button data-a="reset">Сброс карты</button><button data-a="top" class="${top ? 'on' : ''}">Вид сверху</button><button data-a="spin" class="${ctl.autoRotate ? 'on' : ''}">Вращение</button>`; }
+  tools.addEventListener('click', e => { const a = e.target.dataset.a; if (!a) return; if (a === 'pause') paused = !paused; if (a === 'reset') { reset(); paused = false; } if (a === 'spin') ctl.autoRotate = !ctl.autoRotate;
+    if (a === 'top') { top = !top; cam.position.set(top ? 0 : -15, top ? 36 : 20, top ? .01 : 25); if (top) ctl.autoRotate = false; } syncTools(); });
+  cv.addEventListener('pointerdown', () => { ctl.autoRotate = false; syncTools(); });
+  syncTools(); load.style.display = 'none';
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage); resize();
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; last = performance.now(); }, { threshold: .05 }).observe(stage);
+  const fmt = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+  (function loop(now) {
+    requestAnimationFrame(loop); const dt = Math.min(.05, (now - last) / 1000); last = now; if (!visible) return;
+    if (!paused) {
+      if (dist < TOTAL) {
+        dist += SPEED * dt; const p = at(dist); tAcc += RATE * dt; let k = Math.floor(tAcc); tAcc -= k;
+        while (k-- > 0 && n < CAP) {
+          const a = Math.random() * Math.PI * 2, dx = Math.cos(a), dy = Math.sin(a), floor = Math.random() < .22, zr = floor ? 0 : Math.random() * H, d = cast(p.x, p.y, dx, dy, zr);
+          if (d > 40) continue; const r = floor ? .5 + Math.random() * (Math.min(d, 9) - .5) : d, i = n * 3, j = (Math.random() - .5) * .04;
+          pos[i] = p.x + dx * r + j; pos[i + 1] = floor ? 0 : zr; pos[i + 2] = -(p.y + dy * r) + j; ramp((floor ? 0 : zr / H) + (Math.random() - .5) * .08, col, i); n++;
+        }
+        geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true; geo.setDrawRange(0, n);
+        if (tN < 999 && (tN === 0 || Math.hypot(p.x - trailPos[(tN - 1) * 3], -p.y - trailPos[(tN - 1) * 3 + 2]) > .25)) { trailPos[tN * 3] = p.x; trailPos[tN * 3 + 1] = .06; trailPos[tN * 3 + 2] = -p.y; tN++; trailGeo.attributes.position.needsUpdate = true; trailGeo.setDrawRange(0, tN); }
+        bot.position.set(p.x, 0, -p.y); if (p.hx || p.hy) { const t = Math.atan2(p.hx, -p.hy); let dr = t - bot.rotation.y; dr = Math.atan2(Math.sin(dr), Math.cos(dr)); bot.rotation.y += dr * Math.min(1, dt * 7); }
+      } else { done += dt; if (done > 6) reset(); }
+    }
+    const w = (now / 1000 * .9) % 1; wave.position.set(bot.position.x, .04, bot.position.z); wave.scale.setScalar(1 + w * 7); wave.material.opacity = dist < TOTAL ? .5 * (1 - w) : 0;
+    beam.position.set(bot.position.x, .5, bot.position.z); beam.rotation.z = now / 1000 * 6; beam.visible = dist < TOTAL && !paused;
+    hud.innerHTML = `<div class="st${dist >= TOTAL ? ' done' : ''}"><span>состояние</span><b>${dist >= TOTAL ? 'карта готова' : paused ? 'пауза' : 'сканирование'}</b></div><div><span>точек в карте</span><b>${fmt(n)}</b></div><div><span>пройдено</span><b>${fmt(Math.min(dist, TOTAL))} м</b></div><div><span>дальность лидара</span><b>0,5–40 м</b></div>`;
+    ctl.update(); renderer.render(scene, cam);
+  })(last);
+}
+</script>
+
+<!-- ===================== 3D: схемы АСУВ ===================== -->
+<script type="module">
+const $a = s => document.querySelector(s);
+const S = { mode: 'layers', sel: null, ew: 0, live: null, read: null, hooks: [] };
+
+const MODES = {
+  layers: {
+    eb: '01 · Пять слоёв', title: 'Данные идут сверху вниз, а РЭБ влияет на каждый слой',
+    lead: 'Синие точки — данные: рождаются у датчиков наверху и опускаются до исполнителей. Зелёная линия слева — обратная связь. Серая колонна справа — РЭБ, её волны задевают все пять слоёв. Нажмите на слой: увидите, что в нём происходит.',
+    sub: 'Слои системы',
+    items: [
+      { id: 'L0', t: '1 · Информационно-разведывательный контур', s: 'Глаза и уши: дроны-разведчики, радиолокация, спутники, «солдат будущего» как датчик', d: 'Здесь рождаются данные. Каждый боец с комплектом — тоже датчик: его позиция, камера и метки целей сразу попадают в систему.', up: 'отбирать главное прямо на дроне и в комплекте бойца: ИИ выделяет цели, и по сети идут метки, а не часы видео.' },
+      { id: 'L1', t: '2 · Транспортный уровень', s: 'Связь и передача данных: радиосвязь, спутник, ретрансляторы, защищённые сети', d: 'Доставляет данные вниз, а приказы и доклады обратно. Если этот слой «лёг», остальные слепнут — проверьте кнопкой «Помехи противника».', up: 'mesh-сеть без центральной станции (данные идут через соседей), автосмена частот при помехах, приоритет срочного: SOS и цели уходят раньше видео.' },
+      { id: 'L2', t: '3 · Геоинформационная подсистема (ГИС)', s: 'Единая карта: все данные на одной цифровой карте обстановки', d: 'Свои, противник, цели и маршруты на одной карте. Боец, командир и штаб видят одну и ту же картину.', up: 'метки ложатся на карту автоматически, без ручного нанесения. Карта работает и в зданиях: 3D-план и позиции без GPS.' },
+      { id: 'L3', t: '4 · Подсистема поддержки решений (СППР)', s: 'Советчик: предлагает варианты и оценивает риски, а решение принимает человек', d: 'Система считает, кто ближе, сколько нужно времени и какой риск. Командиру остаётся выбрать вариант — выделен синим.', cls: 'key', up: 'готовые шаблоны действий для типовых ситуаций и подсказка «что изменилось». Командир решает за секунды, а не за минуты.' },
+      { id: 'L4', t: '5 · Исполнительный контур', s: 'Приказ становится действием: подразделения, ударные дроны, антидроновая защита, обратная связь', d: 'Приказ доходит до исполнителя, тот действует и докладывает. Доклад снова поднимается наверх, и круг замыкается.', up: 'приказ сразу на планшет исполнителя с кнопкой «принял», автоматический доклад о результате и позиции.' },
+      { id: 'ew', t: 'РЭБ — радиоэлектронная борьба', s: 'Борьба за эфир: слушать, глушить, защищаться. Влияет на все пять слоёв сразу', cls: 'ew', d: 'Противник глушит связь и ищет наши передатчики, мы делаем то же с ним. Включите «Помехи противника» — синие данные начнут теряться на уровне связи.', up: 'короткие передачи, смена частот, mesh-резервирование. Без связи комплект копит данные и отправляет их, когда канал вернётся.' },
+    ],
+  },
+  cycle: {
+    eb: '02 · Цикл решения', title: 'Любое решение проходит один и тот же замкнутый цикл',
+    lead: 'Шарик показывает, где сейчас решение. Цикл повторяется непрерывно: кто проходит его быстрее противника, тот опережает. Главный шаг — «Решить» — выделен синим.',
+    sub: 'Шаги цикла',
+    items: [
+      { id: 'c0', t: '1. Увидеть', s: 'дроны, датчики, разведка', d: 'Цель замечена дроном, радаром или бойцом.', up: 'больше датчиков в сети: каждый боец с комплектом — ещё одни «глаза».' },
+      { id: 'c1', t: '2. Передать', s: 'связь доставляет данные', d: 'Метка и видео уходят по сети. Без АСУВ это голос по рации — с ошибками в координатах.', up: 'передавать метку с координатами автоматически, одним нажатием.' },
+      { id: 'c2', t: '3. Понять', s: 'единая карта обстановки', d: 'Данные ложатся на карту рядом со своими силами — видно, что происходит.', up: 'одна карта на всех уровнях: от бойца до штаба.' },
+      { id: 'c3', t: '4. Решить', s: 'командир выбирает', cls: 'key', d: 'СППР предлагает варианты, командир выбирает. Самый важный шаг — поэтому он выделен.', up: 'СППР готовит варианты заранее, пока данные ещё идут.' },
+      { id: 'c4', t: '5. Выполнить', s: 'приказ у исполнителей', d: 'Приказ приходит на устройство подразделения или оператора дрона.', up: 'приказ с картой и целью прямо на планшет, а не голосом.' },
+      { id: 'c5', t: '6. Проверить', s: 'результат, и всё заново', d: 'Дрон или боец подтверждает результат — и цикл начинается снова.', up: 'автоматический доклад: фото и видео результата сразу на карте.' },
+    ],
+  },
+  funnel: {
+    eb: '03 · Данные → разведка', title: 'Разведкой данные становятся только после отбора главного',
+    lead: 'Слева в систему льётся поток: видео, сигналы, снимки. Воронка отбирает главное, лишнее падает вниз. Дальше идут только сведения — что, где и куда движется. Часы видео без отбора — ещё не разведка.',
+    sub: 'Этапы',
+    items: [
+      { id: 'f0', t: 'Сырые данные', s: 'видео, сигналы, снимки', d: 'Дроны, радары и спутники выдают огромный поток: часы видео и тысячи сигналов.', up: 'не гнать всё подряд в сеть — она не резиновая, особенно при РЭБ.' },
+      { id: 'f1', t: 'Отбор', s: 'убрать лишнее, найти главное', d: 'Оператор или ИИ отбрасывают пустое и находят важное.', up: 'отбирать как можно ближе к датчику, прямо на дроне. Тогда сеть не забита, а командир не тонет в данных.' },
+      { id: 'f2', t: 'Сведения', s: 'что, где и куда движется', cls: 'key', d: 'Из потока остаются конкретные факты: цель, координаты, направление движения.', up: 'автоматически ставить сведения на единую карту.' },
+      { id: 'f3', t: 'Решение', s: 'командир выбирает действие', d: 'Только по сведениям командир может решать быстро и точно.', up: 'СППР сразу предлагает варианты по новым сведениям.' },
+    ],
+  },
+  compare: {
+    eb: '04 · Было → стало', title: 'АСУВ убирает лишние передачи между наблюдением и действием',
+    lead: 'Дальний ряд — как было: шесть ручных передач, на каждой теряется время и может исказиться информация. Ближний ряд — с АСУВ: четыре шага, данные идут сами. Время условное, важно соотношение.',
+    sub: 'За счёт чего путь становится короче',
+    items: [
+      { id: 'i0', t: 'Отбор главного прямо на дроне', s: 'ИИ на борту выделяет цели — в сеть уходят метки, а не часы видео', d: 'Меньше нагрузка на связь, меньше работы оператору. Цель появляется на карте через секунды.' },
+      { id: 'i1', t: 'Связь, которую трудно заглушить', s: 'mesh-сеть, автосмена частот, приоритет срочных сообщений', d: 'Если один узел заглушен, данные идут через соседей. SOS и цели всегда уходят первыми.' },
+      { id: 'i2', t: 'Карта обновляется сама', s: 'никто не наносит метки вручную — нет ошибок в координатах', d: 'Убирает самую долгую ручную операцию из старой схемы — «нанесение на карту».' },
+      { id: 'i3', t: 'СППР с готовыми вариантами', s: 'система считает риски и время, командир только выбирает', d: 'Решение всё равно за человеком, но ему не нужно считать в уме.' },
+      { id: 'i4', t: 'Приказ прямо на устройство', s: 'исполнитель получает задачу на планшет и нажимает «принял»', d: 'Нет пересказа по рации — нет искажений. Командир видит, что приказ получен.' },
+      { id: 'i5', t: 'Автоматическая обратная связь', s: 'результат и позиции возвращаются в систему без доклада голосом', d: 'Цикл замыкается сам: зелёная дуга возвращает результат к датчикам, и система сразу видит новую обстановку.' },
+    ],
+  },
+};
+
+const side = $a('#aSide');
+function renderSide() {
+  const M = MODES[S.mode];
+  let ctrl = '';
+  if (S.mode === 'layers') ctrl = `<div class="a-ctrl" id="aEw">${['Обычный эфир', 'Помехи противника', 'Помехи + защита'].map((t, i) => `<button data-ew="${i}" class="${S.ew === i ? 'on' + (i === 1 ? ' rd' : '') : ''}">${t}</button>`).join('')}</div>`;
+  side.innerHTML = `<div class="eyebrow">${M.eb}</div><h3>${M.title}</h3><p class="a-lead">${M.lead}</p>${ctrl}<div class="a-read" id="aRead">…</div><div class="a-sub">${M.sub}</div>
+    <div class="a-list">${M.items.map(it => `<button class="a-item ${it.cls || ''} ${S.sel === it.id ? 'on' : ''} ${S.live === it.id ? 'live' : ''}" data-id="${it.id}"><b>${it.t}</b><small>${it.s}</small><div class="more">${it.d || ''}${it.up ? `<em>${it.up}</em>` : ''}</div></button>`).join('')}</div>`;
+  S.read = $a('#aRead');
+  side.querySelectorAll('.a-item').forEach(b => b.onclick = () => select(b.dataset.id));
+  side.querySelectorAll('#aEw button').forEach(b => b.onclick = () => { S.ew = +b.dataset.ew; if (S.ew) S.sel = 'L1'; renderSide(); });
+}
+function select(id) { S.sel = S.sel === id ? null : id; renderSide(); }
+function setLive(id) { if (S.live === id) return; S.live = id; side.querySelectorAll('.a-item').forEach(b => b.classList.toggle('live', b.dataset.id === id)); }
+function setMode(m) { S.mode = m; S.sel = null; S.live = null; document.querySelectorAll('#aTabs button').forEach(b => b.classList.toggle('on', b.dataset.m === m)); renderSide(); S.hooks.forEach(f => f(m)); }
+document.querySelectorAll('#aTabs button').forEach(b => b.onclick = () => setMode(b.dataset.m));
+renderSide();
+
+Promise.all([import('three'), import('three/addons/geometries/RoundedBoxGeometry.js')])
+  .then(([THREE, rb]) => init3d(THREE, rb.RoundedBoxGeometry))
+  .catch(e => { console.error(e); $a('#aFail').style.display = 'grid'; });
+
+function init3d(THREE, RoundedBoxGeometry) {
+  const stage = $a('#aStage'), cv = $a('#aCv'), ov = $a('#aOv');
+  const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+  renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0A1013); scene.fog = new THREE.Fog(0x0A1013, 18, 38);
+  const cam = new THREE.PerspectiveCamera(34, 1, .1, 100);
+  scene.add(new THREE.HemisphereLight(0xd6e6ff, 0x1f2418, 1.15));
+  const sun = new THREE.DirectionalLight(0xfff2e0, 2.2); sun.position.set(4, 9, 7); scene.add(sun);
+  const rim = new THREE.DirectionalLight(0x68C3FF, 1.2); rim.position.set(-6, 4, -6); scene.add(rim);
+  const grid = new THREE.GridHelper(44, 88, 0x1c2b33, 0x111b20); grid.position.y = -.35; scene.add(grid);
+
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const C = { friend: 0x68C3FF, ok: 0x5FD39A, hostile: 0xFF5A5F, prop: 0xFFC24B, panel: 0x15222A, panel3: 0x1A2A33, line: 0x2C404B, dark: 0x22272a, gray: 0x8C9EA6 };
+  const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .6, metalness: .25, ...o });
+  const bas = (c, op = 1) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, depthWrite: op >= 1 });
+  const RB = (w, h, d, r = .04) => new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2.1, h / 2.1, d / 2.1));
+  const add = (par, geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); par.add(m); return m; };
+  const pick = (o, id) => { o.traverse(c => { if (c.isMesh) c.userData.pick = id; }); return o; };
+  const ease = f => f * f * (3 - 2 * f);
+  const rotors = [], blink = [];
+
+  // карта для ГИС
+  const mapTex = (() => {
+    const c = document.createElement('canvas'); c.width = 768; c.height = 432; const g = c.getContext('2d');
+    g.fillStyle = '#0d171c'; g.fillRect(0, 0, 768, 432);
+    g.strokeStyle = 'rgba(104,195,255,.12)'; g.lineWidth = 1;
+    for (let x = 0; x <= 768; x += 48) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 432); g.stroke(); }
+    for (let y = 0; y <= 432; y += 48) { g.beginPath(); g.moveTo(0, y); g.lineTo(768, y); g.stroke(); }
+    g.strokeStyle = 'rgba(140,158,166,.33)';
+    for (let k = 0; k < 7; k++) { g.beginPath(); for (let x = 0; x <= 768; x += 8) { const y = 50 + k * 55 + Math.sin(x / 80 + k) * 18 + Math.sin(x / 27 + k * 2) * 6; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+    g.strokeStyle = 'rgba(104,195,255,.5)'; g.lineWidth = 7; g.beginPath(); g.moveTo(0, 300); g.bezierCurveTo(220, 250, 330, 380, 768, 290); g.stroke();
+    g.fillStyle = '#68C3FF'; [[120, 330], [190, 360], [260, 320], [160, 260]].forEach(([x, y]) => g.fillRect(x - 15, y - 10, 30, 20));
+    g.fillStyle = '#FF5A5F'; [[540, 120], [610, 160], [500, 190]].forEach(([x, y]) => { g.beginPath(); g.moveTo(x, y - 16); g.lineTo(x + 16, y); g.lineTo(x, y + 16); g.lineTo(x - 16, y); g.fill(); });
+    g.strokeStyle = '#FFC24B'; g.fillStyle = '#FFC24B'; g.lineWidth = 6; g.beginPath(); g.moveTo(560, 150); g.lineTo(430, 240); g.stroke();
+    g.beginPath(); g.moveTo(410, 254); g.lineTo(440, 222); g.lineTo(448, 250); g.fill();
+    g.strokeStyle = '#5FD39A'; g.setLineDash([12, 10]); g.lineWidth = 4; g.beginPath(); g.moveTo(190, 340); g.quadraticCurveTo(320, 240, 480, 210); g.stroke();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  })();
+
+  // примитивы
+  function drone(par, x, y, z, s = 1, col = C.dark) {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); par.add(g);
+    add(g, RB(.3, .08, .2, .03), std(col)); add(g, new THREE.SphereGeometry(.035, 10, 8), std(0x111111), 0, -.05, .07);
+    [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([a, b]) => {
+      const arm = add(g, new THREE.BoxGeometry(.24, .018, .018), std(col), a * .1, 0, b * .075); arm.rotation.y = -Math.atan2(b * .075, a * .1);
+      const r = add(g, new THREE.CylinderGeometry(.1, .1, .005, 20), bas(0xaab4b8, .4), a * .19, .03, b * .14); rotors.push(r);
+    });
+    return g;
+  }
+  function person(par, x, y, z, col = 0x5a6150, s = 1) {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); par.add(g);
+    add(g, new THREE.CapsuleGeometry(.08, .2, 4, 10), std(col, { roughness: .85 }), 0, .2, 0);
+    add(g, new THREE.SphereGeometry(.065, 14, 10), std(0x6d6a4c, { roughness: .8 }), 0, .45, 0);
+    return g;
+  }
+  function mast(par, x, y, z, h = .7, col = C.friend) {
+    const g = new THREE.Group(); g.position.set(x, y, z); par.add(g);
+    add(g, new THREE.CylinderGeometry(.018, .03, h, 8), std(0x5d6f78, { metalness: .6 }), 0, h / 2, 0);
+    [.35, .6, .85].forEach(f => { const b = add(g, new THREE.BoxGeometry(.16 * (1.1 - f), .012, .012), std(0x5d6f78), 0, h * f, 0); b.rotation.y = f * 2; });
+    const tip = add(g, new THREE.SphereGeometry(.045, 12, 8), bas(col), 0, h + .02, 0); blink.push(tip);
+    g.userData.tip = V(x, y + h + .02, z); return g;
+  }
+  function satellite(par, x, y, z) {
+    const g = new THREE.Group(); g.position.set(x, y, z); par.add(g);
+    add(g, RB(.2, .2, .28, .02), std(0xb9a46a, { metalness: .6, roughness: .35 }));
+    [-1, 1].forEach(s => { add(g, new THREE.BoxGeometry(.5, .01, .2), std(0x1c4a6c, { metalness: .5, roughness: .3, emissive: 0x0f2a40 }), s * .38, 0, 0); });
+    add(g, new THREE.ConeGeometry(.07, .08, 16, 1, true), std(0xdddddd, { side: THREE.DoubleSide }), 0, -.14, 0).rotation.x = Math.PI;
+    return g;
+  }
+  function radarDish(par, x, y, z) {
+    const g = new THREE.Group(); g.position.set(x, y, z); par.add(g);
+    add(g, new THREE.CylinderGeometry(.03, .05, .3, 8), std(0x5d6f78), 0, .15, 0);
+    const d = add(g, new THREE.SphereGeometry(.22, 20, 8, 0, Math.PI * 2, 0, Math.PI / 3), std(0xc8d0d4, { side: THREE.DoubleSide, metalness: .4 }), 0, .45, 0);
+    d.rotation.x = -1.1; g.userData.dish = g; return g;
+  }
+  function vehicle(par, x, y, z, s = 1) {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s); par.add(g);
+    add(g, RB(.56, .16, .3, .04), std(0x4f5640), 0, .1, 0); add(g, RB(.22, .1, .18, .03), std(0x454b38), -.03, .23, 0);
+    add(g, new THREE.CylinderGeometry(.015, .015, .3, 8), std(0x222222), .17, .24, 0).rotation.z = Math.PI / 2;
+    return g;
+  }
+  function radio(par, x, y, z) {
+    const g = new THREE.Group(); g.position.set(x, y, z); par.add(g);
+    add(g, RB(.16, .28, .09, .02), std(0x3d4234), 0, .14, 0); add(g, new THREE.CylinderGeometry(.008, .012, .35, 6), std(0x111111), .04, .45, 0);
+    return g;
+  }
+  function mapStand(par, x, y, z, w = .9, h = .55, tilt = -1.0) {
+    const g = new THREE.Group(); g.position.set(x, y, z); par.add(g);
+    add(g, new THREE.CylinderGeometry(.03, .05, .3, 8), std(0x5d6f78), 0, .15, 0);
+    const p = add(g, new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: mapTex, side: THREE.DoubleSide }), 0, .3 + h * .3, 0); p.rotation.x = tilt;
+    return g;
+  }
+  const octa = (par, x, y, z, s = .22, col = C.friend) => add(par, new THREE.OctahedronGeometry(s, 0), std(col, { emissive: col, emissiveIntensity: .5, roughness: .3 }), x, y, z);
+  function edgesOf(geo, col, op = 1) { return new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op })); }
+  function tubeBetween(par, a, b, r, mat) { const d = new THREE.Vector3().subVectors(b, a); const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d.length(), 10, 1, true), mat); m.position.copy(a).addScaledVector(d, .5); m.quaternion.setFromUnitVectors(V(0, 1, 0), d.clone().normalize()); par.add(m); return m; }
+  function pedestal(par, x, z, col, hex = false, sz = 1.2) {
+    const geo = hex ? new THREE.CylinderGeometry(.62, .7, .22, 6) : RB(sz, .2, .9, .05);
+    const m = add(par, geo, std(C.panel3, { emissive: new THREE.Color(col), emissiveIntensity: 0 }), x, 0, z);
+    const e = edgesOf(hex ? new THREE.CylinderGeometry(.62, .7, .22, 6) : new THREE.BoxGeometry(sz, .2, .9), col, .7); e.position.set(x, 0, z); par.add(e);
+    m.userData.edge = e; return m;
+  }
+
+  // ================= 1. СЛОИ =================
+  const GL = new THREE.Group(); scene.add(GL);
+  const LY = [4.4, 3.3, 2.2, 1.1, 0];
+  const slabs = LY.map((y, i) => {
+    const m = add(GL, RB(6, .12, 3.4, .05), std(C.panel, { emissive: new THREE.Color(C.friend), emissiveIntensity: i === 3 ? .06 : 0 }), 0, y, 0);
+    m.userData.pick = 'L' + i;
+    const e = edgesOf(new THREE.BoxGeometry(6, .12, 3.4), i === 3 ? C.friend : C.line, .9); e.position.y = y; GL.add(e);
+    return { m, e, y };
+  });
+  // L0 — разведка
+  { const y = LY[0] + .06, g = new THREE.Group(); GL.add(g);
+    [[-1.9, .6, .5, 1.3], [.5, .75, -.7, 1.1], [1.7, .55, .9, 1]].forEach(([x, h, z, s]) => {
+      drone(g, x, y + h, z, s);
+      const cone = add(g, new THREE.ConeGeometry(.42, h - .08, 24, 1, true), bas(C.friend, .08), x, y + (h - .08) / 2, z); cone.material.side = THREE.DoubleSide;
+    });
+    satellite(g, 2.3, y + 1.5, -1.1); radarDish(g, -.6, y, -.9); person(g, -.6, y, .9, 0x5a6150, 1.1);
+    pick(g, 'L0'); }
+  // L1 — связь
+  const L1masts = [];
+  { const y = LY[1] + .06, g = new THREE.Group(); GL.add(g);
+    [[-2.3, -.9], [-.8, .8], [.8, -.7], [2.3, .7]].forEach(([x, z]) => L1masts.push(mast(g, x, y, z, .62)));
+    for (let i = 0; i < 3; i++) tubeBetween(g, L1masts[i].userData.tip, L1masts[i + 1].userData.tip, .008, bas(C.friend, .45));
+    tubeBetween(g, L1masts[0].userData.tip, L1masts[2].userData.tip, .006, bas(C.friend, .2));
+    tubeBetween(g, L1masts[1].userData.tip, L1masts[3].userData.tip, .006, bas(C.friend, .2));
+    pick(g, 'L1'); }
+  const hop = add(GL, new THREE.SphereGeometry(.07, 12, 8), bas(0xffffff));
+  const shield = new THREE.Group(); GL.add(shield);
+  { const bx = new THREE.BoxGeometry(6.5, .95, 3.9); add(shield, bx, bas(C.friend, .07)).position.y = LY[1] + .38; const e = edgesOf(bx, C.friend, .6); e.position.y = LY[1] + .38; shield.add(e); }
+  // L2 — ГИС
+  { const p = add(GL, new THREE.PlaneGeometry(5.5, 3.0), new THREE.MeshBasicMaterial({ map: mapTex }), 0, LY[2] + .065, 0); p.rotation.x = -Math.PI / 2; p.userData.pick = 'L2'; }
+  // L3 — СППР
+  const cards = [];
+  { const y = LY[3] + .06, g = new THREE.Group(); GL.add(g);
+    [[-1.3, -.35, .35], [0, -.55, 0], [1.3, -.35, -.35]].forEach(([x, z, ry], i) => {
+      const c = add(g, RB(1.0, .58, .04, .02), std(i === 1 ? 0x1c4a6c : 0x26343c, { emissive: new THREE.Color(i === 1 ? C.friend : 0x000000), emissiveIntensity: i === 1 ? .5 : 0 }), x, y + .42, z); c.rotation.y = ry; cards.push(c);
+      [.12, 0, -.12].forEach((dy, k) => { const ln = add(c, new THREE.PlaneGeometry(.7 - k * .18, .035), bas(i === 1 ? 0xcfeaff : 0x5d6f78, .9), -.05 + k * .06, dy, .022); });
+    });
+    const brain = add(g, new THREE.IcosahedronGeometry(.2, 1), new THREE.MeshBasicMaterial({ color: C.friend, wireframe: true, transparent: true, opacity: .6 }), -2.3, y + .5, .5); brain.userData.spin = 1; cards.brain = brain;
+    person(g, 0, y, .95, 0x5a6150, 1.15);
+    pick(g, 'L3'); }
+  // L4 — исполнение
+  { const y = LY[4] + .06, g = new THREE.Group(); GL.add(g);
+    [[-2.1, .5], [-1.7, .95], [-1.3, .4]].forEach(([x, z]) => person(g, x, y, z));
+    const dome = add(g, new THREE.SphereGeometry(1.0, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: C.friend, wireframe: true, transparent: true, opacity: .16 }), -1.7, y, .65);
+    vehicle(g, .4, y, -.6); vehicle(g, 1.1, y, .5, .9); drone(g, 2.2, y + .7, -.4, 1.1, 0x3d4234);
+    pick(g, 'L4'); }
+  // РЭБ колонна
+  const ewCol = add(GL, RB(.6, 5.2, 3.4, .06), std(C.panel3, { emissive: new THREE.Color(C.prop), emissiveIntensity: 0, transparent: true, opacity: .55, metalness: 0, depthWrite: false }), 4.05, 2.2, 0); ewCol.userData.pick = 'ew';
+  { const e = edgesOf(new THREE.BoxGeometry(.6, 5.2, 3.4), C.prop, .5); e.position.copy(ewCol.position); GL.add(e); }
+  mast(GL, 4.05, 4.8, 0, .5, C.prop); pick(GL.children[GL.children.length - 1], 'ew');
+  const ewRings = [];
+  LY.forEach((y, i) => { for (let k = 0; k < 2; k++) { const r = add(GL, new THREE.RingGeometry(.46, .5, 64), bas(C.prop, .8), 4.05, y + .12, 0); r.rotation.x = -Math.PI / 2; r.material.side = THREE.DoubleSide; ewRings.push({ r, ph: i * .17 + k * .5 }); } });
+  // обратная связь
+  { const fb = tubeBetween(GL, V(-3.35, 0, 1.55), V(-3.35, 4.55, 1.55), .025, bas(C.ok, .55)); add(GL, new THREE.ConeGeometry(.08, .2, 12), bas(C.ok), -3.35, 4.65, 1.55); }
+  const fbP = [...Array(5)].map((_, i) => ({ m: add(GL, new THREE.SphereGeometry(.06, 10, 8), bas(C.ok)), y: i * .9 }));
+  // пакеты данных
+  const pkGeo = new THREE.SphereGeometry(.055, 10, 8), PK = [], stats = { ok: 12, lost: 0 };
+  function resetPk(o, init) { o.m.position.set((Math.random() * 2 - 1) * 2.6, init ? Math.random() * 5 : 5.1 + Math.random() * .5, (Math.random() * 2 - 1) * 1.4); o.sp = .9 + Math.random() * .5; o.st = 0; o.chk = false; o.m.material.color.setHex(C.friend); o.m.material.opacity = 1; }
+  for (let i = 0; i < 44; i++) { const o = { m: add(GL, pkGeo, bas(C.friend, .99)), v: V(0, 0, 0) }; resetPk(o, true); PK.push(o); }
+
+  function updLayers(dt, t) {
+    const sel = S.sel, pulse = .5 + .5 * Math.sin(t * 4);
+    slabs.forEach((s, i) => { const on = sel === 'L' + i; s.m.material.emissiveIntensity = on ? .12 + pulse * .2 : (i === 3 ? .06 : 0) + (i === 1 && S.ew === 1 ? .0 : 0); s.e.material.color.setHex(on ? C.friend : (i === 1 && S.ew === 1 ? C.hostile : i === 3 ? C.friend : C.line)); });
+    if (S.ew === 1) slabs[1].m.material.emissive.setHex(C.hostile), slabs[1].m.material.emissiveIntensity = .08 + pulse * .1; else slabs[1].m.material.emissive.setHex(C.friend);
+    ewCol.material.emissiveIntensity = sel === 'ew' ? .15 + pulse * .2 : .05;
+    shield.visible = S.ew === 2;
+    const ewc = S.ew ? C.hostile : C.prop;
+    ewRings.forEach(o => { const a = (t * .45 + o.ph) % 1; o.r.scale.setScalar(1 + a * 9); o.r.material.opacity = (1 - a) * (S.ew ? .8 : .4); o.r.material.color.setHex(ewc); });
+    cards.forEach((c, i) => { if (i === 1) c.material.emissiveIntensity = .35 + pulse * .35; });
+    cards.brain.rotation.y += dt * .8; cards.brain.rotation.x += dt * .3;
+    // прыжки по ретрансляторам
+    const hp = (t * .6) % 3, hi = Math.floor(hp), hf = ease(hp - hi), a = L1masts[hi].userData.tip, b = L1masts[hi + 1].userData.tip;
+    hop.position.lerpVectors(a, b, hf); hop.position.y += Math.sin(hf * Math.PI) * .25;
+    hop.material.color.setHex(S.ew === 1 && Math.sin(t * 9) > 0 ? C.hostile : 0xffffff);
+    const decay = Math.exp(-dt / 5); stats.ok *= decay; stats.lost *= decay;
+    for (const o of PK) {
+      const p = o.m.position;
+      if (o.st === 0) {
+        p.y -= o.sp * dt;
+        if (!o.chk && p.y < LY[1] + .25) { o.chk = true; const ch = S.ew === 1 ? .55 : S.ew === 2 ? .05 : 0; if (Math.random() < ch) { o.st = 1; o.life = 1; o.m.material.color.setHex(C.hostile); o.v.set(1.5 + Math.random() * 2, .8, (Math.random() - .5) * 1.5); stats.lost++; } }
+        if (p.y < LY[4] + .12) { stats.ok++; resetPk(o); }
+      } else { p.addScaledVector(o.v, dt); o.v.y -= dt * 2; o.life -= dt * .8; o.m.material.opacity = Math.max(0, o.life); if (o.life <= 0) resetPk(o); }
+    }
+    fbP.forEach(o => { o.y = (o.y + dt * 1.1) % 4.5; o.m.position.set(-3.35, o.y, 1.55); });
+    const pct = Math.round(100 * stats.ok / (stats.ok + stats.lost + 1e-6));
+    if (S.read) S.read.innerHTML = `До исполнителей доходит: <b class="${pct > 90 ? 'bl' : 'r'}">${pct}%</b> данных<div class="a-meter"><i style="width:${pct}%"></i></div>` +
+      (S.ew === 1 ? '<span class="r">Противник глушит уровень связи — карта и СППР получают неполную картину.</span>' : S.ew === 2 ? '<span class="g">Mesh-сеть и смена частот: данные обходят заглушенный канал.</span>' : 'Эфир спокоен. Включите помехи, чтобы проверить уровень связи.');
+  }
+  const labL = () => {
+    const out = [];
+    const names = ['1 · Разведка — «глаза и уши»', '2 · Связь — передача данных', '3 · ГИС — единая карта', '4 · СППР — советчик', '5 · Исполнение — приказ → действие'];
+    const subs = ['дроны, радары, спутники, боец-датчик', 'радио, спутник, ретрансляторы', 'вся обстановка на одной карте', 'варианты и риски, решает человек', 'подразделения, ударные дроны, ПВО'];
+    LY.forEach((y, i) => out.push({ id: 'l' + i, p: V(-3.05, y, 1.7), t: `${names[i]}<small>${subs[i]}</small>`, c: 'l ' + (S.sel === 'L' + i ? 'on' : i === 3 ? 'bl' : (i === 1 && S.ew === 1 ? 'rd' : '')) }));
+    out.push({ id: 'ew', p: V(4.05, 5.45, 0), t: 'РЭБ<small>слушать · глушить · защищаться</small>', c: S.sel === 'ew' ? 'on' : (S.ew ? 'rd' : 'am') });
+    out.push({ id: 'fb', p: V(-3.35, 4.9, 1.55), t: 'обратная связь ↑', c: 'ghost gr' });
+    out.push({ id: 'dn', p: V(0, 5.5, -1.7), t: 'данные идут сверху вниз ↓', c: 'ghost' });
+    if (S.ew === 2) out.push({ id: 'sh', p: V(3.2, LY[1] + .85, -1.95), t: 'защита: mesh + смена частот', c: 'bl' });
+    return out;
+  };
+
+  // ================= 2. ЦИКЛ =================
+  const GC = new THREE.Group(); scene.add(GC);
+  const R = 3.5, NA = [...Array(6)].map((_, k) => (-150 + 60 * k) * Math.PI / 180), NP = NA.map(a => V(R * Math.cos(a), 0, R * Math.sin(a)));
+  const cyc = NP.map((p, k) => { const m = pedestal(GC, p.x, p.z, k === 3 ? C.friend : C.line, true); m.userData.pick = 'c' + k; return m; });
+  { const tr = add(GC, new THREE.TorusGeometry(R, .03, 8, 160), bas(C.friend, .45), 0, .02, 0); tr.rotation.x = Math.PI / 2;
+    for (let k = 0; k < 6; k++) { const a = NA[k] + Math.PI / 6, p = V(R * Math.cos(a), .02, R * Math.sin(a)), tan = V(-Math.sin(a), 0, Math.cos(a)); const c = add(GC, new THREE.ConeGeometry(.09, .26, 12), bas(C.friend, .8)); c.position.copy(p); c.quaternion.setFromUnitVectors(V(0, 1, 0), tan); }
+    const inner = add(GC, new THREE.RingGeometry(1.25, 1.3, 64, 1, 0, Math.PI * 1.6), bas(C.line, .9), 0, .01, 0); inner.rotation.x = -Math.PI / 2; inner.material.side = THREE.DoubleSide; GC.userData.inner = inner; }
+  { const g = (k, f) => { const grp = new THREE.Group(); grp.position.copy(NP[k]); grp.position.y = .11; GC.add(grp); f(grp); pick(grp, 'c' + k); };
+    g(0, p => { drone(p, 0, .75, 0, 1.4); radarDish(p, .3, 0, -.2).scale.setScalar(.7); });
+    g(1, p => { mast(p, 0, 0, 0, .9); radio(p, .3, 0, .15); });
+    g(2, p => mapStand(p, 0, 0, 0, 1.0, .6, -.9));
+    g(3, p => { const o = octa(p, 0, .75, 0, .25); o.userData.spin = 1; GC.userData.dec = o; person(p, .3, 0, .25, 0x5a6150, 1.1); });
+    g(4, p => { vehicle(p, -.12, 0, 0); person(p, .32, 0, .2); });
+    g(5, p => { [.3, .2, .1].forEach((r, i) => { const t = add(p, new THREE.TorusGeometry(r, .02, 8, 32), bas(i === 2 ? C.ok : C.hostile, .9), 0, .5, 0); }); add(p, new THREE.CylinderGeometry(.02, .02, .35, 6), std(0x5d6f78), 0, .17, 0); });
+  }
+  const cPk = add(GC, new THREE.SphereGeometry(.13, 16, 12), bas(0xffffff)); const cLight = new THREE.PointLight(C.friend, 3, 3); cPk.add(cLight);
+  let ct = 0, laps = 0; const CD = .9, CTR = 1.1;
+  function updCycle(dt, t) {
+    ct += dt; const step = CD + CTR, total = step * 6; if (ct >= total) { ct -= total; laps++; }
+    const k = Math.floor(ct / step), loc = ct - k * step, pulse = .5 + .5 * Math.sin(t * 5);
+    let a = NA[k], at = -1;
+    if (loc < CD) at = k; else { const f = ease((loc - CD) / CTR); a = NA[k] + f * Math.PI / 3; }
+    cPk.position.set(R * Math.cos(a), .35 + (at < 0 ? Math.sin(((loc - CD) / CTR) * Math.PI) * .35 : .05), R * Math.sin(a));
+    cPk.material.color.setHex(k === 3 && at === 3 ? C.friend : 0xffffff);
+    cyc.forEach((m, i) => { const on = i === at || S.sel === 'c' + i; m.material.emissive.setHex(i === 3 ? C.friend : (S.sel === 'c' + i ? C.friend : C.ok)); m.material.emissiveIntensity = on ? .2 + pulse * .3 : (i === 3 ? .12 : 0); });
+    GC.userData.inner.rotation.z -= dt * .5;
+    GC.userData.dec.rotation.y += dt;
+    setLive('c' + k);
+    if (S.read) { const it = MODES.cycle.items[k]; S.read.innerHTML = `Сейчас: <b class="bl">${it.t}</b> — ${it.s}<br>Полных кругов: <b>${laps}</b>`; }
+  }
+  const labC = () => MODES.cycle.items.map((it, k) => ({ id: 'cy' + k, p: V(NP[k].x, -.2, NP[k].z + (NP[k].z > 0 ? .75 : 0)), t: `${it.t}<small>${it.s}</small>`, c: (NP[k].z > 0 ? 'b ' : '') + (S.sel === it.id || S.live === it.id ? 'on' : k === 3 ? 'bl' : '') }))
+    .map((d, k) => (NP[k].z < 0 ? { ...d, p: V(NP[k].x, 1.55, NP[k].z) } : d))
+    .concat([{ id: 'cyc', p: V(0, .05, 0), t: 'цикл повторяется<br>непрерывно', c: 'c ghost' }]);
+
+  // ================= 3. ВОРОНКА =================
+  const GF = new THREE.Group(); scene.add(GF);
+  const FX = [-4.8, -1.5, 1.6, 4.7];
+  FX.forEach((x, i) => { const m = pedestal(GF, x, 0, i === 2 ? C.friend : C.line, false, 1.5); m.userData.pick = 'f' + i; });
+  { const g = new THREE.Group(); GF.add(g); drone(g, -5.1, 2.1, -.3, 1.3); satellite(g, -4.4, 2.9, -.6); radarDish(g, -4.6, .1, .2); const camb = add(g, RB(.3, .2, .2, .03), std(0x2a2f33), -5.1, 1.0, .45); add(camb, new THREE.CylinderGeometry(.06, .06, .1, 14), std(0x111111), .17, 0, 0).rotation.z = Math.PI / 2; pick(g, 'f0'); }
+  const funnel = new THREE.Group(); funnel.position.set(-1.5, 1.45, 0); GF.add(funnel); pick(funnel, 'f1');
+  { const geo = new THREE.CylinderGeometry(1.45, .2, 1.5, 40, 1, true);
+    const f1 = add(funnel, geo, std(C.friend, { transparent: true, opacity: .14, side: THREE.DoubleSide, depthWrite: false, emissive: new THREE.Color(C.friend), emissiveIntensity: .2 })); f1.rotation.z = Math.PI / 2; f1.userData.pick = 'f1';
+    const f2 = add(funnel, geo, new THREE.MeshBasicMaterial({ color: C.friend, wireframe: true, transparent: true, opacity: .22 })); f2.rotation.z = Math.PI / 2;
+    const rim2 = add(funnel, new THREE.TorusGeometry(1.45, .025, 8, 64), bas(C.friend, .8), -.75, 0, 0); rim2.rotation.y = Math.PI / 2; funnel.userData.f1 = f1; }
+  { const st = new THREE.Group(); GF.add(st); mapStand(st, 1.6, .1, 0, 1.9, 1.15, -.75); pick(st, 'f2'); }
+  const cmdr = new THREE.Group(); GF.add(cmdr); person(cmdr, 4.7, .1, 0, 0x5a6150, 1.6); pick(cmdr, 'f3');
+  const cRing = add(GF, new THREE.TorusGeometry(.5, .025, 8, 48), bas(C.friend, .9), 4.7, .14, 0); cRing.rotation.x = Math.PI / 2;
+  const NRAW = 240, rawM = new THREE.InstancedMesh(new THREE.BoxGeometry(.075, .075, .075), new THREE.MeshBasicMaterial({ color: 0xffffff }), NRAW); GF.add(rawM);
+  const RAWC = [0x7FA7BF, 0xFFC24B, 0xDCE6E8, 0x7FA7BF], dummy = new THREE.Object3D(), tmpC = new THREE.Color();
+  const RAW = [...Array(NRAW)].map(() => ({ s: V(), e: V(), p: V(), v: V(), f: 0, sp: 0, st: 0, c: 0, rot: Math.random() * 6 }));
+  const fst = { in: 0, drop: 0, intel: 0 };
+  function resetRaw(o, init) { o.s.set(-5.6 + Math.random() * 1.4, .4 + Math.random() * 2.7, -1.3 + Math.random() * 2.6); o.e.set(-2.15, 1.45 + (Math.random() - .5) * 1.6, (Math.random() - .5) * 1.6); o.f = init ? Math.random() : 0; o.sp = .3 + Math.random() * .25; o.st = 0; o.c = Math.floor(Math.random() * 4); o.p.copy(o.s); }
+  RAW.forEach(o => resetRaw(o, true));
+  const INT = [...Array(18)].map(() => { const m = octa(GF, 0, -5, 0, .1); m.visible = false; return { m, st: -1, t: 0, a: V(), b: V(), c: V() }; });
+  function spawnIntel() { const o = INT.find(i => i.st < 0); if (!o) return; o.st = 0; o.t = 0; o.a.set(-.65, 1.45, 0); o.b.set(1.6 + (Math.random() - .5) * 1.2, 1.15 + (Math.random() - .5) * .25, .1 + (Math.random() - .5) * .5); o.c.set(4.7, 1.0, 0); o.m.visible = true; }
+  let ringK = 0;
+  function updFunnel(dt, t) {
+    for (let i = 0; i < NRAW; i++) {
+      const o = RAW[i]; let sc = 1;
+      if (o.st === 0) { o.f += dt * o.sp; const f = Math.min(1, o.f); o.p.lerpVectors(o.s, o.e, ease(f)); if (o.f >= 1) { fst.in++; if (Math.random() < .085) { fst.intel++; spawnIntel(); resetRaw(o); } else { fst.drop++; o.st = 1; o.v.set(.3 + Math.random() * .6, .3, (Math.random() - .5) * .8); } } }
+      else { o.p.addScaledVector(o.v, dt); o.v.y -= dt * 4; sc = Math.max(0, (o.p.y + .2) / 1.4); if (o.p.y < -.25) resetRaw(o); }
+      o.rot += dt * 2; dummy.position.copy(o.p); dummy.rotation.set(o.rot, o.rot * .7, 0); dummy.scale.setScalar(o.st ? Math.max(.4, sc) : 1); dummy.updateMatrix(); rawM.setMatrixAt(i, dummy.matrix);
+      rawM.setColorAt(i, tmpC.setHex(o.st ? 0x3a4a52 : RAWC[o.c]));
+    }
+    rawM.instanceMatrix.needsUpdate = true; rawM.instanceColor.needsUpdate = true;
+    INT.forEach(o => { if (o.st < 0) return; o.t += dt; o.m.rotation.y += dt * 3;
+      if (o.st === 0) { const f = Math.min(1, o.t / 1.1); o.m.position.lerpVectors(o.a, o.b, ease(f)); o.m.position.y += Math.sin(f * Math.PI) * .5; if (f >= 1) { o.st = 1; o.t = 0; } }
+      else if (o.st === 1) { o.m.position.copy(o.b); if (o.t > 1.6) { o.st = 2; o.t = 0; o.a.copy(o.b); } }
+      else { const f = Math.min(1, o.t / 1.0); o.m.position.lerpVectors(o.a, o.c, ease(f)); o.m.position.y += Math.sin(f * Math.PI) * .6; if (f >= 1) { o.st = -1; o.m.visible = false; ringK = 1; } } });
+    ringK = Math.max(0, ringK - dt * 1.5); cRing.scale.setScalar(1 + ringK * .8); cRing.material.opacity = .5 + ringK * .5;
+    funnel.userData.f1.material.emissiveIntensity = S.sel === 'f1' ? .3 + .3 * Math.sin(t * 5) : .2;
+    if (S.read) S.read.innerHTML = `Поступило данных: <b>${fst.in}</b><br>Отброшено как лишнее: <b class="y">${fst.drop}</b><br>Стало сведений: <b class="bl">${fst.intel}</b> ${fst.in ? `(≈ 1 из ${Math.max(1, Math.round(fst.in / Math.max(1, fst.intel)))})` : ''}`;
+  }
+  const labF = () => MODES.funnel.items.map((it, i) => ({ id: 'fu' + i, p: V(FX[i], -.25, .5), t: `${it.t}<small>${it.s}</small>`, c: 'b ' + (S.sel === it.id ? 'on' : i === 2 ? 'bl' : '') }))
+    .concat([{ id: 'fdrop', p: V(-.9, .15, 1.0), t: 'лишнее отброшено', c: 'ghost' }, { id: 'fcap', p: V(0, 3.6, -1), t: 'Часы видео без отбора главного — ещё не разведка', c: 'ghost' }]);
+
+  // ================= 4. БЫЛО / СТАЛО =================
+  const GK = new THREE.Group(); scene.add(GK);
+  const MX = [-5, -3, -1, 1, 3, 5], MZ = -1.8, AX = [-5, -5 / 3, 5 / 3, 5], AZ = 1.8;
+  const mPed = MX.map(x => pedestal(GK, x, MZ, C.line, false, 1.3));
+  const aPed = AX.map((x, i) => { const m = pedestal(GK, x, AZ, C.friend, false, 1.4); m.material.emissiveIntensity = .1; return m; });
+  { const y = .1;
+    person(GK, MX[0], y, MZ); radio(GK, MX[1], y, MZ); mapStand(GK, MX[2], y, MZ, .8, .5, -.9); person(GK, MX[3], y, MZ, 0x5a6150, 1.1); radio(GK, MX[4], y, MZ); person(GK, MX[5], y, MZ);
+    for (let i = 0; i < 5; i++) { tubeBetween(GK, V(MX[i] + .65, .02, MZ), V(MX[i + 1] - .65, .02, MZ), .012, bas(C.prop, .45)); const w = add(GK, new THREE.TorusGeometry(.1, .025, 8, 20), bas(C.hostile, .85), (MX[i] + MX[i + 1]) / 2, .25, MZ); w.userData.warn = 1; }
+    drone(GK, AX[0], .85, AZ, 1.4); mapStand(GK, AX[1], y, AZ, .9, .55, -.9); const o = octa(GK, AX[2], .65, AZ, .24); o.userData.spin = 1; GK.userData.dec = o; person(GK, AX[3], y, AZ, 0x5a6150, 1.15);
+  }
+  const aTubes = []; for (let i = 0; i < 3; i++) aTubes.push(tubeBetween(GK, V(AX[i] + .7, .05, AZ), V(AX[i + 1] - .7, .05, AZ), .035, bas(C.friend, .7)));
+  const arc = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(AX[3], .15, AZ + .5), V(2.5, 1.0, AZ + 1.4), V(-2.5, 1.0, AZ + 1.4), V(AX[0], .15, AZ + .5)]), 60, .03, 8), bas(C.ok, .25)); GK.add(arc);
+  const mPk = add(GK, new THREE.SphereGeometry(.12, 14, 10), bas(C.prop)), aPk = add(GK, new THREE.SphereGeometry(.12, 14, 10), bas(0xffffff)); aPk.add(new THREE.PointLight(C.friend, 2.5, 2.5));
+  const MD = [.5, 1.7, 2.3, 1.4, 1.7, .5], MT = .55, AD = [.2, .25, .55, .2], AT = .35, PER = 12, APER = 3;
+  function lane(xs, dw, tr, t) { let acc = 0; for (let i = 0; i < xs.length; i++) { if (t < acc + dw[i]) return { x: xs[i], at: i, f: 0 }; acc += dw[i]; if (i < xs.length - 1) { if (t < acc + tr) { const f = (t - acc) / tr; return { x: xs[i] + (xs[i + 1] - xs[i]) * ease(f), at: -1, f }; } acc += tr; } } return { x: xs[xs.length - 1], at: xs.length - 1, f: 0, done: true }; }
+  const MTOT = MD.reduce((a, b) => a + b) + MT * 5, ATOT = AD.reduce((a, b) => a + b) + AT * 3;
+  let kt = 0;
+  const IMP = { i0: ['p', 0], i1: ['t', 0], i2: ['p', 1], i3: ['p', 2], i4: ['p', 3], i5: ['arc'] };
+  function updCompare(dt, t) {
+    kt = (kt + dt) % PER; const pulse = .5 + .5 * Math.sin(t * 5);
+    const m = lane(MX, MD, MT, kt), at = Math.floor(kt / APER), a = lane(AX, AD, AT, kt - at * APER);
+    mPk.position.set(m.x, .45 + Math.sin(m.f * Math.PI) * .4, MZ); mPk.visible = !m.done || kt < MTOT + .6;
+    aPk.position.set(a.x, .45 + Math.sin(a.f * Math.PI) * .4, AZ); aPk.visible = !a.done || (kt - at * APER) < ATOT + .3;
+    mPed.forEach((p, i) => { p.material.emissive.setHex(C.prop); p.material.emissiveIntensity = m.at === i && !m.done ? .15 + pulse * .25 : 0; });
+    GK.children.forEach(c => { if (c.userData.warn) { c.rotation.y += dt * 2; c.scale.setScalar(m.at >= 0 && !m.done ? 1 + pulse * .25 : 1); } });
+    const imp = S.sel && IMP[S.sel];
+    aPed.forEach((p, i) => { const hl = imp && imp[0] === 'p' && imp[1] === i; p.material.emissiveIntensity = hl ? .3 + pulse * .4 : a.at === i && !a.done ? .35 : .1; });
+    aTubes.forEach((tb, i) => { const hl = imp && imp[0] === 't' && imp[1] === i; tb.material.opacity = hl ? .6 + pulse * .4 : .55; tb.scale.set(hl ? 2.2 : 1, 1, hl ? 2.2 : 1); });
+    arc.material.opacity = imp && imp[0] === 'arc' ? .5 + pulse * .5 : .25;
+    GK.userData.dec.rotation.y += dt;
+    const mDone = kt >= MTOT ? 1 : 0, aDone = at + (kt - at * APER >= ATOT ? 1 : 0);
+    S.cmp = { mDone, aDone };
+    if (S.read) S.read.innerHTML = `За одно и то же время:<br><span class="y">Без АСУВ</span> — задач выполнено: <b>${mDone}</b> из 1<br><span class="bl">С АСУВ</span> — задач выполнено: <b class="bl">${aDone}</b><br><span style="color:var(--dim)">6 ручных передач → 4 автоматических шага</span>`;
+  }
+  const labK = () => {
+    const mN = ['Наблюдатель', 'Доклад<br>по рации', 'Нанесение<br>на карту', 'Решение', 'Приказ<br>по рации', 'Исполнитель'], aN = ['Датчик или дрон', 'Единая карта', 'Решение с СППР', 'Исполнитель'];
+    const out = [{ id: 'kh1', p: V(0, 2.15, MZ), t: 'Как было: без автоматизации — 6 ручных передач', c: 'hd am' }, { id: 'kh2', p: V(0, 1.25, AZ), t: 'С АСУВ: короткий путь — 4 шага', c: 'hd bl' }];
+    mN.forEach((n, i) => out.push({ id: 'km' + i, p: V(MX[i], 1.25, MZ), t: n, c: '' }));
+    aN.forEach((n, i) => { const imp = S.sel && IMP[S.sel]; out.push({ id: 'ka' + i, p: V(AX[i], -.2, AZ + .45), t: n, c: 'b ' + (imp && imp[0] === 'p' && imp[1] === i ? 'on' : 'bl') }); });
+    out.push({ id: 'kw', p: V(-4, .45, MZ), t: 'ручная передача: задержка, риск ошибки', c: 'ghost rd' });
+    const c = S.cmp || { mDone: 0, aDone: 0 };
+    out.push({ id: 'kc1', p: V(6.0, .2, MZ), t: `✓ ${c.mDone}`, c: 'r big am' }, { id: 'kc2', p: V(6.0, .2, AZ), t: `✓ ${c.aDone}`, c: 'r big bl' });
+    if (S.sel && IMP[S.sel]) { const it = MODES.compare.items.find(x => x.id === S.sel), im = IMP[S.sel]; const p = im[0] === 'p' ? V(AX[im[1]], -.2, AZ + 1.6) : im[0] === 't' ? V((AX[0] + AX[1]) / 2, -.2, AZ + 1.6) : V(0, -.2, AZ + 1.9); out.push({ id: 'kimp', p, t: `${it.t}<small>${it.s}</small>`, c: 'b ' + (im[0] === 'arc' ? 'gr on' : 'on') }); }
+    out.push({ id: 'karc', p: V(-3.4, 1.0, AZ + 1.3), t: 'обратная связь', c: 'ghost gr' });
+    return out;
+  };
+
+  // ================= режимы и камера =================
+  const MODE3D = {
+    layers: { g: GL, upd: updLayers, lab: labL, cam: { t: V(-.9, 2.1, 0), r: 12.8, th: -.32, ph: .3 } },
+    cycle: { g: GC, upd: updCycle, lab: labC, cam: { t: V(0, .2, .3), r: 12, th: 0, ph: .78 } },
+    funnel: { g: GF, upd: updFunnel, lab: labF, cam: { t: V(0, 1.1, 0), r: 10.8, th: .2, ph: .2 } },
+    compare: { g: GK, upd: updCompare, lab: labK, cam: { t: V(0, .5, .5), r: 13.2, th: 0, ph: .5 } },
+  };
+  const camS = { t: V(0, 2, 0), r: 16, th: .8, ph: .4 }, goal = { t: V(), r: 0, th: 0, ph: 0 }; let uTh = 0, uPh = 0, sway = 0, pop = 0;
+  function applyMode(m) {
+    for (const k in MODE3D) MODE3D[k].g.visible = k === m;
+    const c = MODE3D[m].cam; goal.t.copy(c.t); goal.r = c.r; goal.th = c.th; goal.ph = c.ph; uTh = 0; uPh = 0; pop = 0;
+    for (const id in labEls) { labEls[id].remove(); delete labEls[id]; }
+  }
+  S.hooks.push(applyMode);
+  // фокус камеры на выбранном слое
+  function camGoal() {
+    if (S.mode === 'layers' && S.sel) { const i = S.sel === 'ew' ? -1 : +S.sel.slice(1); return { t: i < 0 ? V(2.2, 2.4, 0) : V(-.6, LY[i] + .3, 0), r: 12 }; }
+    return null;
+  }
+
+  // мышь
+  let drag = null;
+  cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId, type: e.pointerType }; });
+  addEventListener('pointermove', e => { if (!drag || e.pointerId !== drag.id) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy); if (drag.type === 'touch' && Math.abs(dy) > Math.abs(dx)) return; uTh -= dx * .007; if (drag.type !== 'touch') uPh = Math.max(-.5, Math.min(.7, uPh + dy * .004)); });
+  addEventListener('pointerup', e => { if (!drag || e.pointerId !== drag.id) return; const click = drag.moved < 6; drag = null; if (click) doPick(e); });
+  addEventListener('pointercancel', () => drag = null);
+  const ray = new THREE.Raycaster(), mp = new THREE.Vector2();
+  function doPick(e) {
+    const r = cv.getBoundingClientRect(); mp.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(mp, cam);
+    const hit = ray.intersectObject(MODE3D[S.mode].g, true).find(h => h.object.userData.pick && h.object.visible);
+    if (hit) select(hit.object.userData.pick); else if (S.sel) select(S.sel);
+  }
+
+  // подписи
+  const labEls = {};
+  function drawLabels(defs, W, H) {
+    for (const k in labEls) labEls[k]._u = false;
+    for (const d of defs) {
+      const p = d.p.clone().project(cam); if (p.z > 1) continue;
+      const x = (p.x * .5 + .5) * W, y = (-p.y * .5 + .5) * H; if (x < -80 || x > W + 80 || y < -30 || y > H + 30) continue;
+      let el = labEls[d.id]; if (!el) { el = labEls[d.id] = document.createElement('div'); ov.appendChild(el); }
+      if (el._h !== d.t) { el.innerHTML = d.t; el._h = d.t; }
+      const cls = 'a-lab ' + (d.c || ''); if (el.className !== cls) el.className = cls;
+      const w = el.offsetWidth || 0, c = ' ' + cls + ' ';
+      const lo = c.includes(' l ') ? x - w - 10 : c.includes(' r ') ? x + 10 : x - w / 2;
+      let cx = x; if (lo < 6) cx += 6 - lo; else if (lo + w > W - 6) cx -= lo + w - (W - 6);
+      el.style.left = cx.toFixed(1) + 'px'; el.style.top = y.toFixed(1) + 'px'; el._u = true;
+    }
+    for (const k in labEls) labEls[k].style.display = labEls[k]._u ? '' : 'none';
+  }
+
+  let visible = true; new IntersectionObserver(es => es.forEach(e => visible = e.isIntersecting), { rootMargin: '100px' }).observe(stage);
+  applyMode(S.mode);
+  const clock = new THREE.Clock(); let rt = 0;
+  function loop() {
+    requestAnimationFrame(loop); if (!visible) { clock.getDelta(); return; }
+    const dt = Math.min(.05, clock.getDelta()) * (RM ? .5 : 1); rt += dt; const t = rt;
+    const W = stage.clientWidth, H = stage.clientHeight, pr = renderer.getPixelRatio();
+    if (cv.width !== Math.round(W * pr) || cv.height !== Math.round(H * pr)) { renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); }
+    const M = MODE3D[S.mode]; M.upd(dt, t);
+    rotors.forEach(r => r.rotation.y += dt * 30); blink.forEach((b, i) => b.material.opacity = .5 + .5 * Math.sin(t * 4 + i));
+    pop = Math.min(1, pop + dt * 2.5); M.g.scale.setScalar(.92 + .08 * ease(pop)); M.g.position.y = (1 - ease(pop)) * -.4;
+    // камера
+    const cg = camGoal(), gt = cg ? cg.t : goal.t, gr = (cg ? cg.r : goal.r) * (W / H < 1 ? 1.75 : W / H < 1.4 ? 1.25 : 1);
+    if (!drag && !RM) sway += dt * .15;
+    const k = 1 - Math.exp(-dt * 2.6);
+    camS.t.lerp(gt, k); camS.r += (gr - camS.r) * k; camS.th += (goal.th - camS.th) * k; camS.ph += (goal.ph - camS.ph) * k;
+    const th = camS.th + uTh + Math.sin(sway) * .12, ph = Math.max(.02, Math.min(1.35, camS.ph + uPh));
+    cam.position.set(camS.t.x + camS.r * Math.sin(th) * Math.cos(ph), camS.t.y + camS.r * Math.sin(ph), camS.t.z + camS.r * Math.cos(th) * Math.cos(ph)); cam.lookAt(camS.t);
+    renderer.render(scene, cam);
+    drawLabels(M.lab(), W, H);
+  }
+  loop();
+}
+</script>
+</body>
+</html>
