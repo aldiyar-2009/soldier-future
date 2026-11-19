@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Солдат будущего — комплект связи и управления</title>
+<meta name="description" content="PIRANT — интерактивная презентация комплекта связи и управления бойца «Солдат будущего»: 3D-модель, приложение HyTIS, робот-разведчик с лидаром.">
+<link rel="icon" type="image/png" href="img/pirant_logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tektur:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -28,7 +30,7 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box }
-  html { scroll-behavior: smooth }
+  html { scroll-behavior: smooth; overflow-x: clip }
   body {
     margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 16px; line-height: 1.55;
     background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
@@ -38,7 +40,7 @@
   p { margin: 0 }
   button { font: inherit; color: inherit; cursor: pointer }
   :focus-visible { outline: 2px solid var(--friend); outline-offset: 2px }
-  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-left)) }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)) }
   .eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--friend) }
   .lead { color: var(--muted); max-width: 68ch; font-size: 17px }
   .sec { padding: 110px 0 40px }
@@ -64,9 +66,12 @@
   .btn:hover { border-color: var(--friend); color: var(--friend) }
   footer { border-top: 1px solid var(--line); padding: 24px 0 40px; margin-top: 70px; color: var(--dim); font-size: 13px; font-family: var(--f-mono) }
   /* ====== новая вёрстка: шапка, комплект, HyTIS, преимущества ====== */
-  .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 50; display: flex; align-items: center; gap: 22px; padding: 12px max(18px, env(safe-area-inset-left)); background: rgba(10,16,19,.82); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line) }
+  .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 50; display: flex; align-items: center; gap: 22px; padding: 9px max(18px, env(safe-area-inset-right)) 9px max(18px, env(safe-area-inset-left)); background: rgba(10,16,19,.82); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line) }
   .topbar b { font-family: var(--f-display); font-size: 17px; letter-spacing: .04em; margin-right: auto }
   .topbar b i { color: var(--friend); font-style: normal }
+  .topbar a.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); font: 700 17px var(--f-display); letter-spacing: .1em; padding-right: 22px; border-right: 1px solid var(--line2); box-shadow: none }
+  .brand img, .foot img { height: 40px; width: auto; display: block; background: #fff; border-radius: 8px; padding: 3px 6px }
+  .foot { display: flex; align-items: center; gap: 16px } .foot img { height: 44px; flex: none }
   .topbar a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .2s }
   .topbar a:hover, .topbar a.on { color: var(--fg) }
   .topbar a.on { box-shadow: 0 2px 0 var(--friend) }
@@ -74,11 +79,11 @@
   .hero2 h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: .95; font-weight: 800; margin: 18px 0 22px }
   .hero2 h1 span { color: var(--friend); display: block }
   .hero2 .lead { font-size: 18px }
-  .hero-fig { position: relative; height: min(88vh, 860px); display: grid; place-items: center }
+  .hero-fig { position: relative; height: min(88vh, 860px); display: grid; place-items: center; container-type: size }
   .hero-fig img { height: 100%; width: 100%; object-fit: contain; position: absolute; inset: 0; z-index: 2; filter: drop-shadow(0 30px 50px rgba(0,0,0,.6)); transition: opacity .6s }
   .hero-fig img.b { position: absolute; inset: 0; opacity: 0 } .hero-fig.flip img.a { opacity: 0 } .hero-fig.flip img.b { opacity: 1 }
-  .hero-fig::before { content: ""; position: absolute; width: 88%; aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line2); box-shadow: 0 0 0 70px rgba(104,195,255,.025), 0 0 0 140px rgba(104,195,255,.015); background: radial-gradient(circle, rgba(104,195,255,.10), transparent 62%) }
-  .hero-fig .sw { position: absolute; width: 88%; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 0deg, rgba(104,195,255,.16), transparent 22%); animation: sweep 7s linear infinite }
+  .hero-fig::before { content: ""; position: absolute; width: min(88cqw, 88cqh); aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line2); box-shadow: 0 0 0 70px rgba(104,195,255,.025), 0 0 0 140px rgba(104,195,255,.015); background: radial-gradient(circle, rgba(104,195,255,.10), transparent 62%) }
+  .hero-fig .sw { position: absolute; width: min(88cqw, 88cqh); aspect-ratio: 1; border-radius: 50%; background: conic-gradient(from 0deg, rgba(104,195,255,.16), transparent 22%); animation: sweep 7s linear infinite }
   .hero-fig button { position: absolute; bottom: 10px; right: 10px; z-index: 3 }
   .stats { display: grid; grid-template-columns: repeat(2, auto); gap: 16px 44px; margin-top: 34px; justify-content: start }
   .stats div b { display: block; white-space: nowrap; font: 700 clamp(22px, 2.4vw, 30px) var(--f-display); color: var(--fg) }
@@ -183,7 +188,7 @@
   .final { text-align: center; padding: 90px 0 30px } .final h2 { font-size: clamp(30px, 5vw, 60px); margin: 12px 0 } .final .lead { margin: 0 auto }
   @media (max-width: 1080px) { .hero2 { grid-template-columns: 1fr; padding-top: 90px } .hero-fig { height: 70vh; order: 2 } .kit-grid, .app-grid { grid-template-columns: 1fr } .kit-info { max-height: none } .f-list { grid-template-columns: repeat(3, 1fr) } .topbar a { display: none } .biz { grid-template-columns: 1fr } }
   .sec.wrap { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)) }
-  @media (max-width: 700px) { .f-list { grid-template-columns: 1fr } .f-grp div { grid-template-columns: 1fr 1fr } .f-btn { font-size: 13px; padding: 8px 8px 8px 32px } .f-btn svg { left: 8px } .kit-hint { display: none } .hero-fig { height: 56vh } .f-info { grid-template-columns: 1fr } .stats { grid-template-columns: repeat(2, auto) } .phone { padding: 8px 14px; border-radius: 18px } .kit-stage { height: 60vh; min-height: 380px } .hs { font-size: 11px } }
+  @media (max-width: 700px) { .f-list { grid-template-columns: 1fr } .f-grp div { grid-template-columns: 1fr 1fr } .f-btn { font-size: 13px; padding: 8px 8px 8px 32px } .f-btn svg { left: 8px } .kit-hint { display: none } .hero-fig { height: 56vh } .f-info { grid-template-columns: 1fr } .stats { grid-template-columns: repeat(2, auto) } .phone { padding: 8px 14px; border-radius: 18px } .kit-stage { height: 60vh; min-height: 380px } .hs { font-size: 11px } .topbar { gap: 12px } .topbar a.brand { padding-right: 12px } .topbar a.brand span { display: none } .foot { flex-direction: column; align-items: flex-start } }
 
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important } }
 </style>
@@ -191,6 +196,7 @@
 <body>
 <div id="prog"></div>
 <div class="topbar">
+  <a class="brand" href="#top" aria-label="PIRANT — наверх"><img src="img/pirant_logo.png" alt="Логотип PIRANT" width="1000" height="797"><span>PIRANT</span></a>
   <b>СОЛДАТ <i>БУДУЩЕГО</i></b>
   <a href="#kit">Комплект</a><a href="#link">Соединение</a><a href="#app">HyTIS</a><a href="#robot">Робот</a><a href="#roles">Роли</a><a href="#plus">Преимущества</a>
 </div>
@@ -334,7 +340,7 @@
     <div class="cta" style="justify-content:center"><a class="btn pri" href="#kit">Вернуться к комплекту</a><a class="btn" href="#top">Наверх ↑</a></div></div>
 </section>
 
-<footer class="wrap">Солдат будущего · интерактивная презентация комплекта · характеристики — по материалам Hycomms «Solution for Soldier System» · 3D-модели выполнены по фотографиям комплекта · сценарии, позывные и координаты условные</footer>
+<footer class="wrap"><div class="foot"><img src="img/pirant_logo.png" alt="Логотип PIRANT" width="1000" height="797" loading="lazy"><span>PIRANT · Солдат будущего · интерактивная презентация комплекта · характеристики — по материалам Hycomms «Solution for Soldier System» · 3D-модели выполнены по фотографиям комплекта · сценарии, позывные и координаты условные</span></div></footer>
 
 <script src="models/kit.js"></script>
 <!-- ===================== страница, схема подключения, HyTIS ===================== -->
@@ -344,7 +350,7 @@
   const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- страница: прогресс, меню, появление ---------- */
-  const prog = $('#prog'), nav = $$('.topbar a'), secs = nav.map(a => $(a.getAttribute('href')));
+  const prog = $('#prog'), nav = $$('.topbar a:not(.brand)'), secs = nav.map(a => $(a.getAttribute('href')));
   addEventListener('scroll', () => {
     const h = document.documentElement; prog.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
     let k = -1; secs.forEach((s, i) => { if (s.getBoundingClientRect().top < innerHeight * .45) k = i; }); nav.forEach((a, i) => a.classList.toggle('on', i === k));
