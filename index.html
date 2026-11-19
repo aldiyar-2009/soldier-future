@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Солдат будущего — комплект связи и управления</title>
-<meta name="description" content="PIRANT — интерактивная презентация комплекта связи и управления бойца «Солдат будущего»: 3D-модель, приложение HyTIS, робот-разведчик с лидаром.">
-<link rel="icon" type="image/png" href="img/pirant_logo.png">
+<title>Солдат будущего — PIRANT Kazakhstan</title>
+<meta name="description" content="PIRANT Kazakhstan — интерактивная презентация комплекта связи и управления бойца «Солдат будущего»: 3D-модель, приложение HyTIS, робот-разведчик с лидаром.">
+<link rel="icon" type="image/png" href="img/pirant_icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tektur:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -64,14 +64,14 @@
   .role .go { justify-self: start; margin-top: 4px }
   .btn { padding: 8px 14px; border-radius: 7px; border: 1px solid var(--line2); background: var(--panel2); font-size: 14px; transition: .2s; color: var(--fg); text-decoration: none; display: inline-block }
   .btn:hover { border-color: var(--friend); color: var(--friend) }
-  footer { border-top: 1px solid var(--line); padding: 24px 0 40px; margin-top: 70px; color: var(--dim); font-size: 13px; font-family: var(--f-mono) }
+  footer.wrap { border-top: 1px solid var(--line); padding-top: 28px; padding-bottom: 40px; margin-top: 70px; color: var(--dim); font-size: 13px; font-family: var(--f-mono) }
   /* ====== новая вёрстка: шапка, комплект, HyTIS, преимущества ====== */
   .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 50; display: flex; align-items: center; gap: 22px; padding: 9px max(18px, env(safe-area-inset-right)) 9px max(18px, env(safe-area-inset-left)); background: rgba(10,16,19,.82); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line) }
   .topbar b { font-family: var(--f-display); font-size: 17px; letter-spacing: .04em; margin-right: auto }
   .topbar b i { color: var(--friend); font-style: normal }
   .topbar a.brand { display: flex; align-items: center; gap: 10px; color: var(--fg); font: 700 17px var(--f-display); letter-spacing: .1em; padding-right: 22px; border-right: 1px solid var(--line2); box-shadow: none }
-  .brand img, .foot img { height: 40px; width: auto; display: block; background: #fff; border-radius: 8px; padding: 3px 6px }
-  .foot { display: flex; align-items: center; gap: 16px } .foot img { height: 44px; flex: none }
+  .brand img { width: auto; display: block } .brand .em { height: 44px } .brand .wm { height: 32px }
+  .foot { display: flex; align-items: center; gap: 28px } .foot img { height: 88px; width: auto; flex: none; display: block }
   .topbar a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: color .2s }
   .topbar a:hover, .topbar a.on { color: var(--fg) }
   .topbar a.on { box-shadow: 0 2px 0 var(--friend) }
@@ -188,7 +188,7 @@
   .final { text-align: center; padding: 90px 0 30px } .final h2 { font-size: clamp(30px, 5vw, 60px); margin: 12px 0 } .final .lead { margin: 0 auto }
   @media (max-width: 1080px) { .hero2 { grid-template-columns: 1fr; padding-top: 90px } .hero-fig { height: 70vh; order: 2 } .kit-grid, .app-grid { grid-template-columns: 1fr } .kit-info { max-height: none } .f-list { grid-template-columns: repeat(3, 1fr) } .topbar a { display: none } .biz { grid-template-columns: 1fr } }
   .sec.wrap { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)) }
-  @media (max-width: 700px) { .f-list { grid-template-columns: 1fr } .f-grp div { grid-template-columns: 1fr 1fr } .f-btn { font-size: 13px; padding: 8px 8px 8px 32px } .f-btn svg { left: 8px } .kit-hint { display: none } .hero-fig { height: 56vh } .f-info { grid-template-columns: 1fr } .stats { grid-template-columns: repeat(2, auto) } .phone { padding: 8px 14px; border-radius: 18px } .kit-stage { height: 60vh; min-height: 380px } .hs { font-size: 11px } .topbar { gap: 12px } .topbar a.brand { padding-right: 12px } .topbar a.brand span { display: none } .foot { flex-direction: column; align-items: flex-start } }
+  @media (max-width: 700px) { .f-list { grid-template-columns: 1fr } .f-grp div { grid-template-columns: 1fr 1fr } .f-btn { font-size: 13px; padding: 8px 8px 8px 32px } .f-btn svg { left: 8px } .kit-hint { display: none } .hero-fig { height: 56vh } .f-info { grid-template-columns: 1fr } .stats { grid-template-columns: repeat(2, auto) } .phone { padding: 8px 14px; border-radius: 18px } .kit-stage { height: 60vh; min-height: 380px } .hs { font-size: 11px } .topbar > b { display: none } .topbar a.brand { padding-right: 0; border-right: 0 } .foot { flex-direction: column; align-items: flex-start } }
 
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important } }
 </style>
@@ -196,7 +196,7 @@
 <body>
 <div id="prog"></div>
 <div class="topbar">
-  <a class="brand" href="#top" aria-label="PIRANT — наверх"><img src="img/pirant_logo.png" alt="Логотип PIRANT" width="1000" height="797"><span>PIRANT</span></a>
+  <a class="brand" href="#top" aria-label="PIRANT Kazakhstan — наверх"><img class="em" src="img/pirant_emblem.png" alt="" width="190" height="160"><img class="wm" src="img/pirant_wordmark.png" alt="PIRANT Kazakhstan" width="510" height="120"></a>
   <b>СОЛДАТ <i>БУДУЩЕГО</i></b>
   <a href="#kit">Комплект</a><a href="#link">Соединение</a><a href="#app">HyTIS</a><a href="#robot">Робот</a><a href="#roles">Роли</a><a href="#plus">Преимущества</a>
 </div>
@@ -340,7 +340,7 @@
     <div class="cta" style="justify-content:center"><a class="btn pri" href="#kit">Вернуться к комплекту</a><a class="btn" href="#top">Наверх ↑</a></div></div>
 </section>
 
-<footer class="wrap"><div class="foot"><img src="img/pirant_logo.png" alt="Логотип PIRANT" width="1000" height="797" loading="lazy"><span>PIRANT · Солдат будущего · интерактивная презентация комплекта · характеристики — по материалам Hycomms «Solution for Soldier System» · 3D-модели выполнены по фотографиям комплекта · сценарии, позывные и координаты условные</span></div></footer>
+<footer class="wrap"><div class="foot"><img src="img/pirant_logo.png" alt="PIRANT Kazakhstan" width="471" height="420" loading="lazy"><span>PIRANT Kazakhstan · Солдат будущего · интерактивная презентация комплекта · характеристики — по материалам Hycomms «Solution for Soldier System» · 3D-модели выполнены по фотографиям комплекта · сценарии, позывные и координаты условные</span></div></footer>
 
 <script src="models/kit.js"></script>
 <!-- ===================== страница, схема подключения, HyTIS ===================== -->
